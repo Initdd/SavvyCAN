@@ -1,7 +1,11 @@
 #include <QObject>
 #include <QDebug>
+#ifdef Q_OS_ANDROID
+#include "android_stubs.h"
+#else
 #include <QCanBusFrame>
 #include <QSerialPortInfo>
+#endif
 #include <QSettings>
 #include <QStringBuilder>
 #include <QtNetwork>

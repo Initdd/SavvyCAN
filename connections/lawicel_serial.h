@@ -1,8 +1,12 @@
 #ifndef LAWICELSERIAL_H
 #define LAWICELSERIAL_H
 
+#ifdef Q_OS_ANDROID
+#include "android_stubs.h"
+#else
 #include <QSerialPort>
 #include <QCanBusDevice>
+#endif
 #include <QThread>
 #include <QTimer>
 

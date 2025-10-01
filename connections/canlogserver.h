@@ -3,7 +3,11 @@
 
 #include <stdio.h>
 
+#ifdef Q_OS_ANDROID
+#include "android_stubs.h"
+#else
 #include <QCanBusDevice>
+#endif
 #include <QThread>
 #include <QTimer>
 #include <QTcpSocket>

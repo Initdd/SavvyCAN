@@ -3,8 +3,12 @@
 
 #include "config.h"
 #include <QMainWindow>
+#ifdef Q_OS_ANDROID
+#include "android_stubs.h"
+#else
 #include <QSerialPort>
 #include <QSerialPortInfo>
+#endif
 #include "canframemodel.h"
 #include "can_structs.h"
 #include "framefileio.h"

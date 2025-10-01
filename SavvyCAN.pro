@@ -8,7 +8,26 @@
     error("Current version of Qt ($${QT_VERSION}) is too old, this project requires Qt 5.14 or newer")
 }
 
-QT = core gui printsupport qml serialbus serialport widgets help network opengl
+android {
+    # Remove Qt modules that don't exist for Android
+    QT = core gui printsupport qml widgets help network opengl
+    
+    # Add Android-specific defines
+    DEFINES += Q_OS_ANDROID ANDROID_BUILD
+    
+    # Add stubs for missing Qt modules
+    INCLUDEPATH += $$PWD/android_stubs
+    SOURCES += $$PWD/android_stubs/qserialport.cpp \
+               $$PWD/android_stubs/qcanbus.cpp
+    HEADERS += $$PWD/android_stubs/qserialport.h \
+               $$PWD/android_stubs/qcanbusframe.h \
+               $$PWD/android_stubs/qcanbusdevice.h \
+               $$PWD/android_stubs/qcanbus.h \
+               $$PWD/android_stubs/android_stubs.h
+} else {
+    # Desktop builds use full Qt modules
+    QT = core gui printsupport qml serialbus serialport widgets help network opengl
+}
 
 CONFIG(release, debug|release):DEFINES += QT_NO_DEBUG_OUTPUT
 

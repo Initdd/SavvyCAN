@@ -1,4 +1,8 @@
+#ifdef Q_OS_ANDROID
+#include "android_stubs/qcanbus.h"
+#else
 #include <QCanBus>
+#endif
 #include <QNetworkDatagram>
 #include <QThread>
 

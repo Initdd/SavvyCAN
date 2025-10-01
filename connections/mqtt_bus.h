@@ -1,7 +1,11 @@
 #ifndef MQTTBUS_H
 #define MQTTBUS_H
 
+#ifdef Q_OS_ANDROID
+#include "android_stubs.h"
+#else
 #include <QCanBusDevice>
+#endif
 #include <QThread>
 #include <QTimer>
 #include "mqtt/qmqtt.h"

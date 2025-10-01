@@ -2,8 +2,12 @@
 
 #include "canconmanager.h"
 
+#ifdef Q_OS_ANDROID
+#include "android_stubs.h"
+#else
 #include <QCanBus>
 #include <QCanBusFrame>
+#endif
 #include <QDateTime>
 #include <QDebug>
 

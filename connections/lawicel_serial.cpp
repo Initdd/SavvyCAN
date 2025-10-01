@@ -1,7 +1,11 @@
 #include <QObject>
 #include <QDebug>
+#ifdef Q_OS_ANDROID
+#include "android_stubs.h"
+#else
 #include <QCanBusFrame>
 #include <QSerialPortInfo>
+#endif
 #include <QSettings>
 #include <QStringBuilder>
 #include <QtNetwork>
@@ -486,7 +490,7 @@ void LAWICELSerial::readSerialData()
         //qDebug() << c << "    " << QString::number(c, 16) << "     " << QString(c);
         debugBuild = debugBuild % QString::number(c, 16).rightJustified(2,'0') % " ";
         //procRXChar(c);
-        mBuildLine.append(c);
+        mBuildLine.append(QChar(c));
         if (c == 13) //all lawicel commands end in CR
         {
             qDebug() << "Got CR!";

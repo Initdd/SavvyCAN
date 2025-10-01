@@ -4,7 +4,11 @@
 #include <QObject>
 #include <QVector>
 #include <stdint.h>
+#ifdef Q_OS_ANDROID
+#include "android_stubs.h"
+#else
 #include <QCanBusFrame>
+#endif
 
 //Now inherits from the built-in CAN frame class from Qt. This should be more future proof and easier to integrate with other code
 

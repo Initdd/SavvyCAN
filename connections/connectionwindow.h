@@ -4,12 +4,16 @@
 
 
 #include <QDialog>
+#ifdef Q_OS_ANDROID
+#include "android_stubs.h"
+#else
 #include <QSerialPortInfo>
+#include <QCanBusDeviceInfo>
+#endif
 #include <QDebug>
 #include <QSettings>
 #include <QTimer>
 #include <QItemSelection>
-#include <QCanBusDeviceInfo>
 #include <QUdpSocket>
 #include "canconnectionmodel.h"
 #include "connections/canconnection.h"

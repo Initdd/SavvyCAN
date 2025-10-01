@@ -2,8 +2,12 @@
 #define NEWCONNECTIONDIALOG_H
 
 #include <QDialog>
+#ifdef Q_OS_ANDROID
+#include "android_stubs.h"
+#else
 #include <QCanBusDeviceInfo>
 #include <QSerialPortInfo>
+#endif
 #include <QDebug>
 #include <QUdpSocket>
 #include "canconnectionmodel.h"

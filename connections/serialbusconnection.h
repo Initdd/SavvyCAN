@@ -4,7 +4,11 @@
 #include "canconnection.h"
 #include "canframemodel.h"
 
+#ifdef Q_OS_ANDROID
+#include "android_stubs.h"
+#else
 #include <QCanBusDevice>
+#endif
 #include <QTimer>
 
 /*

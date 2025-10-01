@@ -3,7 +3,11 @@
 #include "can_structs.h"
 #include <QDateTime>
 #include <QFileDialog>
+#ifdef Q_OS_ANDROID
+#include "android_stubs.h"
+#else
 #include <QtSerialPort/QSerialPortInfo>
+#endif
 #include "connections/canconmanager.h"
 #include "connections/connectionwindow.h"
 #include "helpwindow.h"
