@@ -64,7 +64,7 @@ void SocketCANd::sendBytesToTCP(const QByteArray &bytes, int busNum)
 
     QString buildDebug;
     buildDebug = "Send data to " + hostIP.toString() + ":" + QString::number(hostPort) + " -> ";
-    foreach (int byt, bytes) {
+    for (int byt : bytes) {
         byt = (unsigned char)byt;
         buildDebug = buildDebug % QString::number(byt, 16) % " ";
     }

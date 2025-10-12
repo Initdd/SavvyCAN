@@ -200,7 +200,7 @@ void TestCanCon::filter_data()
     /* 3 filters */
     filters.clear();
     filteredIds.clear();
-    foreach(quint32 id, ids) {
+    for (quint32 id : ids) {
         filters.append({id, 0xFFFF, false});
         filteredIds.append(id);
     }

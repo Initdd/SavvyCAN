@@ -76,7 +76,7 @@ void GVRetSerial::sendToSerial(const QByteArray &bytes)
 
     QString buildDebug;
     buildDebug = "Write to serial -> ";
-    foreach (int byt, bytes) {
+    for (int byt : bytes) {
         byt = (unsigned char)byt;
         buildDebug = buildDebug % QString::number(byt, 16) % " ";
     }
@@ -489,7 +489,7 @@ void GVRetSerial::serialError(QSerialPort::SerialPortError err)
         killConnection = true;
         piStop();
         break;
-#if QT_VERSION <= QT_VERSION_CHECK( 6, 0, 0 )
+#if QT_VERSION < QT_VERSION_CHECK( 6, 0, 0 )
     case QSerialPort::ParityError:
         errMessage = "Parity error on serial port";
         break;

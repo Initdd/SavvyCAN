@@ -578,12 +578,12 @@ void GraphingWindow::removeSelectedGraph()
             }
         }
 
-        foreach (QCPItemBracket* brk, graphParams[idx].brackets)
+        for (QCPItemBracket* brk : graphParams[idx].brackets)
         {
             ui->graphingView->removeItem(brk);
         }
 
-        foreach (QCPItemText* txt, graphParams[idx].bracketTexts)
+        for (QCPItemText* txt : graphParams[idx].bracketTexts)
         {
             ui->graphingView->removeItem(txt);
         }

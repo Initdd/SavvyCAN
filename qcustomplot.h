@@ -4084,7 +4084,7 @@ PlottableType *QCustomPlot::plottableAt(const QPointF &pos, bool onlySelectable,
   QVariant resultDetails;
   double resultDistance = mSelectionTolerance; // only regard clicks with distances smaller than mSelectionTolerance as selections, so initialize with that value
   
-  foreach (QCPAbstractPlottable *plottable, mPlottables)
+  for (QCPAbstractPlottable *plottable : mPlottables)
   {
     PlottableType *currentPlottable = qobject_cast<PlottableType*>(plottable);
     if (!currentPlottable || (onlySelectable && !currentPlottable->selectable())) // we could have also passed onlySelectable to the selectTest function, but checking here is faster, because we have access to QCPAbstractPlottable::selectable
@@ -4130,7 +4130,7 @@ ItemType *QCustomPlot::itemAt(const QPointF &pos, bool onlySelectable) const
   ItemType *resultItem = 0;
   double resultDistance = mSelectionTolerance; // only regard clicks with distances smaller than mSelectionTolerance as selections, so initialize with that value
   
-  foreach (QCPAbstractItem *item, mItems)
+  for (QCPAbstractItem *item : mItems)
   {
     ItemType *currentItem = qobject_cast<ItemType*>(item);
     if (!currentItem || (onlySelectable && !currentItem->selectable())) // we could have also passed onlySelectable to the selectTest function, but checking here is faster, because we have access to QCPAbstractItem::selectable

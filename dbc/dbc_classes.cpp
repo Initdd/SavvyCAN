@@ -169,7 +169,7 @@ QString DBC_SIGNAL::processSignalTree(const CANFrame &frame)
     }
     qDebug() << val;
 
-    foreach (DBC_SIGNAL *sig, multiplexedChildren)
+    for (DBC_SIGNAL *sig : multiplexedChildren)
     {
         if (sig->isValueMatchingMultiplex(val))
         {

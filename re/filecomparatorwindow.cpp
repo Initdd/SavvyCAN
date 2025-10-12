@@ -459,7 +459,7 @@ void FileComparatorWindow::calculateDetails()
 
                 QList<QString> refVals = it.value();
                 QList<QString> interestedVals = interested.signalInstances[it.key()];
-                foreach (QString str, refVals)
+                for (QString str : refVals)
                 {
                     if (!interestedVals.contains(str))
                     {
@@ -470,7 +470,7 @@ void FileComparatorWindow::calculateDetails()
                     }
                 }
                 qApp->processEvents();
-                foreach (QString str, interestedVals)
+                for (QString str : interestedVals)
                 {
                     if (!refVals.contains(str))
                     {

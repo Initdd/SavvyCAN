@@ -227,7 +227,7 @@ void QMQTT::Network::onSocketReadReady()
     QIODevice *ioDevice = _socket->ioDevice();
     // Only read the available (cached) bytes, so the read will never block.
     QByteArray data = ioDevice->read(ioDevice->bytesAvailable());
-    foreach(char byte, data) {
+    for (char byte : data) {
         switch (_readState) {
         case Header:
             _header = static_cast<quint8>(byte);

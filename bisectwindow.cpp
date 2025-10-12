@@ -110,7 +110,7 @@ void BisectWindow::refreshIDList()
 
     std::sort(foundID.begin(), foundID.end());
 
-    foreach (int id, foundID) {
+    for (int id : foundID) {
         ui->cbIDLower->addItem(Utility::formatCANID(id));
         ui->cbIDUpper->addItem(Utility::formatCANID(id));
     }

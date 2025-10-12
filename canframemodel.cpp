@@ -354,7 +354,7 @@ void CANFrameModel::recalcOverwrite()
     //Look at the current list of frames and turn it into just a list of unique IDs
     QHash<uint64_t, CANFrame> overWriteFrames;
     uint64_t idAugmented; //id in lower 29 bits, bus number shifted up 29 bits
-    foreach(CANFrame frame, frames)
+    for (CANFrame frame : frames)
     {
         if (frame.frameType() != frame.DataFrame) continue;
 
@@ -779,7 +779,7 @@ void CANFrameModel::addFrames(const CANConnection*, const QVector<CANFrame>& pFr
         mutex.unlock();
     }
 
-    foreach(const CANFrame& frame, pFrames)
+    for (const CANFrame& frame : pFrames)
     {
         addFrame(frame);
     }

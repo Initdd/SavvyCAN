@@ -272,7 +272,7 @@ MainWindow::~MainWindow()
 //but eventually each window should be registered and be able to be iterated.
 void MainWindow::killEmAll()
 {
-    foreach (GraphingWindow *win, graphWindows)
+    for (GraphingWindow *win : graphWindows)
     {
         killWindow(win);
     }

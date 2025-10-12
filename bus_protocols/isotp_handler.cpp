@@ -130,7 +130,7 @@ void ISOTP_HANDLER::rapidFrames(const CANConnection* conn, const QVector<CANFram
 
     qDebug() << "received " << QString::number(pFrames.count()) << " messages in ISOTP handler";
 
-    foreach(const CANFrame& thisFrame, pFrames)
+    for (const CANFrame& thisFrame : pFrames)
     {
         //only process frames that we've marked are ISOTP frames
         //unless processAll is true

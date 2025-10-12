@@ -349,7 +349,7 @@ void ConnectionWindow::setSuspendAll(bool pSuspend)
 {
     QList<CANConnection*>& conns = CANConManager::getInstance()->getConnections();
 
-    foreach(CANConnection* conn_p, conns)
+    for (CANConnection* conn_p : conns)
         conn_p->suspend(pSuspend);
 
     connModel->refresh();
@@ -508,7 +508,7 @@ void ConnectionWindow::handleClearDebugText() {
 void ConnectionWindow::handleSendHex() {
     QByteArray bytes;
     QStringList tokens = ui->lineSend->text().split(' ');
-    foreach (QString token, tokens) {
+    for (QString token : tokens) {
         bytes.append(token.toInt(nullptr, 16));
     }
     emit sendDebugData(bytes);
@@ -591,7 +591,7 @@ void ConnectionWindow::saveConnections()
     QVector<int> CanFds;
  
     /* save connections */
-    foreach(CANConnection* conn_p, conns)
+    for (CANConnection* conn_p : conns)
       { CANBus bus;
 
         if (conn_p->getBusSettings(0, bus)) {

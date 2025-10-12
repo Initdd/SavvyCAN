@@ -4,13 +4,14 @@
 #
 #-------------------------------------------------
 
-!versionAtLeast(QT_VERSION, 5.14.0) {
-    error("Current version of Qt ($${QT_VERSION}) is too old, this project requires Qt 5.14 or newer")
+!versionAtLeast(QT_VERSION, 6.0.0) {
+    error("Current version of Qt ($${QT_VERSION}) is too old, this project requires Qt 6.0 or newer")
 }
 
 android {
     # Remove Qt modules that don't exist for Android
-    QT = core gui printsupport qml widgets help network opengl
+    QT = core gui printsupport qml widgets network opengl
+    qtHaveModule(core5compat): QT += core5compat
     
     # Add Android-specific defines
     DEFINES += Q_OS_ANDROID ANDROID_BUILD
@@ -26,7 +27,10 @@ android {
                $$PWD/android_stubs/android_stubs.h
 } else {
     # Desktop builds use full Qt modules
-    QT = core gui printsupport qml serialbus serialport widgets help network opengl
+    QT = core gui printsupport qml widgets network opengl
+    qtHaveModule(serialbus): QT += serialbus
+    qtHaveModule(serialport): QT += serialport
+    qtHaveModule(core5compat): QT += core5compat
 }
 
 CONFIG(release, debug|release):DEFINES += QT_NO_DEBUG_OUTPUT
@@ -261,7 +265,7 @@ FORMS    += ui/candatagrid.ui \
 android {
     FORMS += ui/mobile/mainwindow.ui
 } else {
-    FORMS += ui/mobile/mainwindow.ui
+    FORMS += ui/mainwindow.ui
 }
     
 RESOURCES += \

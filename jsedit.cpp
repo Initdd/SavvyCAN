@@ -535,7 +535,7 @@ void SidebarWidget::mousePressEvent(QMouseEvent *event)
         int fh = fontMetrics().lineSpacing();
         int ys = event->pos().y();
         if (event->pos().x() > xofs) {
-            foreach (BlockInfo ln, lineNumbers)
+            for (BlockInfo ln : lineNumbers)
                 if (ln.position < ys && (ln.position + fh) > ys) {
                     if (ln.foldable)
                         lineNo = ln.number;
@@ -557,7 +557,7 @@ void SidebarWidget::paintEvent(QPaintEvent *event)
     p.setPen(lineNumberColor);
     p.setFont(font);
     int fh = QFontMetrics(font).height();
-    foreach (BlockInfo ln, lineNumbers)
+    for (BlockInfo ln : lineNumbers)
         p.drawText(0, ln.position, width() - 4 - foldIndicatorWidth, fh, Qt::AlignRight, QString::number(ln.number));
 
     if (foldIndicatorWidth > 0) {
@@ -596,7 +596,7 @@ void SidebarWidget::paintEvent(QPaintEvent *event)
             iconPainter.end();
         }
 
-        foreach (BlockInfo ln, lineNumbers)
+        for (BlockInfo ln : lineNumbers)
             if (ln.foldable) {
                 if (ln.folded)
                     p.drawPixmap(xofs, ln.position, rightArrowIcon);
@@ -837,7 +837,7 @@ static int findClosingConstruct(const QTextBlock &block)
         return -1;
     const QTextDocument *doc = block.document();
     int offset = block.position();
-    foreach (int pos, blockData->bracketPositions) {
+    for (int pos : blockData->bracketPositions) {
         int absPos = offset + pos;
         if (doc->characterAt(absPos) == '{') {
             int matchPos = findClosingMatch(doc, absPos);

@@ -204,7 +204,7 @@ void SnifferWindow::filter(bool pFilter)
     mFilter = pFilter;
     mModel.filter(mFilter ? fltType::NONE : fltType::ALL);
 
-    foreach(QListWidgetItem* item, mMap)
+    for (QListWidgetItem* item : mMap)
         item->setCheckState(mFilter ? Qt::Unchecked : Qt::Checked);
 }
 

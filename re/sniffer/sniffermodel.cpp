@@ -260,7 +260,7 @@ void SnifferModel::refresh()
     if(toRemove.size())
     {
         beginResetModel();
-        foreach(quint32 id, toRemove)
+        for (quint32 id : toRemove)
         {
             /* remove element */
             item = mMap.take(id);
@@ -316,7 +316,7 @@ void SnifferModel::filter(fltType pType, int pId)
 
 void SnifferModel::update(CANConnection*, QVector<CANFrame>& pFrames)
 {
-    foreach(const CANFrame& frame, pFrames)
+    for (const CANFrame& frame : pFrames)
     {
         if(!mMap.contains(frame.frameId()))
         {
@@ -339,7 +339,7 @@ void SnifferModel::notch()
 {
     QMap<quint32, SnifferItem*>& map = mFilter ? mFilters : mMap;
 
-    foreach(SnifferItem* item, map)
+    for (SnifferItem* item : map)
         item->notch(true);
 }
 
@@ -347,7 +347,7 @@ void SnifferModel::unNotch()
 {
     QMap<quint32, SnifferItem*>& map = mFilter ? mFilters : mMap;
 
-    foreach(SnifferItem* item, map)
+    for (SnifferItem* item : map)
         item->notch(false);
 }
 

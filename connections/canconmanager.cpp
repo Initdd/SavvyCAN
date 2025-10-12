@@ -49,7 +49,7 @@ CANConManager::~CANConManager()
 
 void CANConManager::stopAllConnections()
 {
-    foreach (CANConnection *conn, mConns)
+    for (CANConnection *conn : mConns)
     {
         conn->stop();
     }
@@ -78,7 +78,7 @@ void CANConManager::replace(int idx, CANConnection* pConn_p)
 int CANConManager::getNumBuses()
 {
     int buses = 0;
-    foreach(CANConnection* conn_p, mConns)
+    for (CANConnection* conn_p : mConns)
     {
         buses += conn_p->getNumBuses();
     }
@@ -88,7 +88,7 @@ int CANConManager::getNumBuses()
 int CANConManager::getBusBase(CANConnection *which)
 {
     int buses = 0;
-    foreach(CANConnection* conn_p, mConns)
+    for (CANConnection* conn_p : mConns)
     {
         if (conn_p != which) buses += conn_p->getNumBuses();
         else return buses;
@@ -121,7 +121,7 @@ void CANConManager::refreshCanList()
     }
     else
     {
-        foreach (CANConnection* conn_p, mConns)
+        for (CANConnection* conn_p : mConns)
             refreshConnection((CANConnection*)conn_p);
     }
 }
@@ -139,7 +139,7 @@ QList<CANConnection*>& CANConManager::getConnections()
 
 CANConnection* CANConManager::getByName(const QString& pName) const
 {
-    foreach(CANConnection* conn_p, mConns)
+    for (CANConnection* conn_p : mConns)
     {
         if(conn_p->getPort() == pName)
             return conn_p;
@@ -152,7 +152,7 @@ CANConnection* CANConManager::getByName(const QString& pName) const
 void CANConManager::refreshConnection(CANConnection* pConn_p)
 {
     unsigned int buses = 0;
-    foreach(CANConnection* conn_p, mConns)
+    for (CANConnection* conn_p : mConns)
     {
         if (conn_p->getStatus() == CANCon::CONNECTED) buses += conn_p->getNumBuses();
     }
@@ -172,7 +172,7 @@ void CANConManager::refreshConnection(CANConnection* pConn_p)
     //into system global bus numbers for display.
     int busBase = 0;
 
-    foreach (CANConnection* conn, mConns)
+    for (CANConnection* conn : mConns)
     {
         if (conn != pConn_p) busBase += conn->getNumBuses();
         else break;
@@ -213,7 +213,7 @@ bool CANConManager::sendFrame(const CANFrame& pFrame)
         return true;
     }
 
-    foreach (CANConnection* conn, mConns)
+    for (CANConnection* conn : mConns)
     {
         //check if this CAN connection is supposed to handle the requested bus
         if (pFrame.bus < (busBase + conn->getNumBuses()))
@@ -239,7 +239,7 @@ bool CANConManager::sendFrame(const CANFrame& pFrame)
 
 bool CANConManager::sendFrames(const QList<CANFrame>& pFrames)
 {
-    foreach(const CANFrame& frame, pFrames)
+    for (const CANFrame& frame : pFrames)
     {
         if(!sendFrame(frame))
             return false;
@@ -256,7 +256,7 @@ bool CANConManager::addTargettedFrame(int pBusId, uint32_t ID, uint32_t mask, QO
     //int tempBusVal;
     int busBase = 0;
 
-    foreach (CANConnection* conn, mConns)
+    for (CANConnection* conn : mConns)
     {
         if (pBusId == -1) conn->addTargettedFrame(pBusId, ID, mask, receiver);
         else if (pBusId < (busBase + conn->getNumBuses()))
@@ -275,7 +275,7 @@ bool CANConManager::removeTargettedFrame(int pBusId, uint32_t ID, uint32_t mask,
     //int tempBusVal;
     int busBase = 0;
 
-    foreach (CANConnection* conn, mConns)
+    for (CANConnection* conn : mConns)
     {
         if (pBusId == -1) conn->removeTargettedFrame(pBusId, ID, mask, receiver);
         else if (pBusId < (busBase + conn->getNumBuses()))
@@ -291,7 +291,7 @@ bool CANConManager::removeTargettedFrame(int pBusId, uint32_t ID, uint32_t mask,
 
 bool CANConManager::removeAllTargettedFrames(QObject *receiver)
 {
-    foreach (CANConnection* conn, mConns)
+    for (CANConnection* conn : mConns)
     {
         conn->removeAllTargettedFrames(receiver);
     }

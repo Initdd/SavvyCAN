@@ -54,7 +54,7 @@ void LAWICELSerial::sendToSerial(const QByteArray &bytes)
 
     QString buildDebug;
     buildDebug = "Write to serial -> ";
-    foreach (int byt, bytes) {
+    for (int byt : bytes) {
         byt = (unsigned char)byt;
         buildDebug = buildDebug % QString::number(byt, 16) % " ";
     }
@@ -184,7 +184,7 @@ bool LAWICELSerial::piSendFrame(const CANFrame& frame)
             buildStr = QString::asprintf("t%03X%u", ID, frame.payload().length());
         }
     }
-    foreach (QChar chr, buildStr)
+    for (QChar chr : buildStr)
     {
         buffer[idx] = chr.toLatin1();
         idx++;
@@ -392,6 +392,7 @@ void LAWICELSerial::serialError(QSerialPort::SerialPortError err)
         killConnection = true;
         piStop();
         break;
+#if QT_VERSION < QT_VERSION_CHECK( 6, 0, 0 )
     case QSerialPort::ParityError:
         errMessage = "Parity error on serial port";
         break;
@@ -401,6 +402,7 @@ void LAWICELSerial::serialError(QSerialPort::SerialPortError err)
     case QSerialPort::BreakConditionError:
         errMessage = "Break error on serial port";
         break;
+#endif
     case QSerialPort::WriteError:
         errMessage = "Write error on serial port";
         piStop();

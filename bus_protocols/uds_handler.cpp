@@ -294,7 +294,7 @@ void UDS_HANDLER::sendUDSFrame(const UDS_MESSAGE &msg)
 
 QString UDS_HANDLER::getShortDesc(QVector<CODE_STRUCT> &codeVector, int code)
 {
-    foreach (CODE_STRUCT codeRec, codeVector)
+    for (CODE_STRUCT codeRec : codeVector)
     {
         if (codeRec.code == code) return codeRec.shortDesc;
     }
@@ -303,7 +303,7 @@ QString UDS_HANDLER::getShortDesc(QVector<CODE_STRUCT> &codeVector, int code)
 
 QString UDS_HANDLER::getLongDesc(QVector<CODE_STRUCT> &codeVector, int code)
 {
-    foreach (CODE_STRUCT codeRec, codeVector)
+    for (CODE_STRUCT codeRec : codeVector)
     {
         if (codeRec.code == code) return codeRec.longDesc;
     }

@@ -355,7 +355,7 @@ bool CANConnection::removeTargettedFrame(int pBusId, uint32_t ID, uint32_t mask,
 bool CANConnection::removeAllTargettedFrames(QObject *receiver)
 {
     for (int i = 0; i < getNumBuses(); i++) {
-        foreach (const CANFltObserver filt, mBusData[i].mTargettedFrames)
+        for (const CANFltObserver filt : mBusData[i].mTargettedFrames)
         {
             if (filt.observer == receiver) mBusData[i].mTargettedFrames.removeOne(filt);
         }
@@ -374,7 +374,7 @@ void CANConnection::checkTargettedFrame(CANFrame &frame)
     if (bus > (mBusData.length() - 1)) bus = mBusData.length() - 1;
 
     if (mBusData[bus].mTargettedFrames.length() == 0) return;
-    foreach (const CANFltObserver filt, mBusData[frame.bus].mTargettedFrames)
+    for (const CANFltObserver filt : mBusData[frame.bus].mTargettedFrames)
     {
         //qDebug() << "Checking filter with id " << filt.id << " mask " << filt.mask;
         maskedID = frame.frameId() & filt.mask;
@@ -387,7 +387,7 @@ void CANConnection::checkTargettedFrame(CANFrame &frame)
 
 bool CANConnection::piSendFrames(const QList<CANFrame>& pFrames)
 {
-    foreach(const CANFrame& frame, pFrames)
+    for (const CANFrame& frame : pFrames)
     {
         if(!piSendFrame(frame))
             return false;

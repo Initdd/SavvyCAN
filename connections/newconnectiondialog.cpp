@@ -196,7 +196,7 @@ void NewConnectionDialog::selectRemote()
     ui->lblDataRate->setHidden(true);
 
     ui->cbPort->clear();
-    foreach(QString pName, *remoteDeviceIPGVRET)
+    for (QString pName : *remoteDeviceIPGVRET)
     {
         ui->cbPort->addItem(pName);
     }
@@ -217,7 +217,7 @@ void NewConnectionDialog::selectKayak()
     ui->lblDataRate->setHidden(true);
 
     ui->cbPort->clear();
-    foreach(QString pName, *remoteBusKayak)
+    for (QString pName : *remoteBusKayak)
     {
         ui->cbPort->addItem(pName);
     }

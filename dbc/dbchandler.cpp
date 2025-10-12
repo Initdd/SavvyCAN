@@ -440,7 +440,7 @@ void DBCFile::findAttributesByType(DBC_ATTRIBUTE_TYPE typ, QList<DBC_ATTRIBUTE> 
 {
     if (!list) return;
     list->clear();
-    foreach (DBC_ATTRIBUTE attr, dbc_attributes)
+    for (const DBC_ATTRIBUTE &attr : dbc_attributes)
     {
         if (attr.attrType == typ) list->append(attr);
     }
@@ -1328,7 +1328,7 @@ bool DBCFile::parseAttribute(QString inpString, DBC_ATTRIBUTE &attr)
             {
                 qDebug() << "ENUM attribute named " << attr.name;
                 QStringList enumLst = match.captured(3).split(',');
-                foreach (QString enumStr, enumLst)
+                for (const QString &enumStr : enumLst)
                 {
                     attr.enumVals.append(Utility::unQuote(enumStr));
                     qDebug() << "Enum value: " << enumStr;
@@ -1412,7 +1412,7 @@ bool DBCFile::saveFile(QString fileName)
             }
             if (node.attributes.count() > 0)
             {
-                foreach (DBC_ATTRIBUTE_VALUE val, node.attributes) {
+                for (const DBC_ATTRIBUTE_VALUE &val : node.attributes) {
                     attrValOutput.append("BA_ \"" + val.attrName + "\" BU_ ");
                     switch (val.value.type())
                     {
@@ -1460,7 +1460,7 @@ bool DBCFile::saveFile(QString fileName)
         //If this message has attributes then compile them into attributes list to output later on.
         if (msg->attributes.count() > 0)
         {
-            foreach (DBC_ATTRIBUTE_VALUE val, msg->attributes) {
+            for (const DBC_ATTRIBUTE_VALUE &val : msg->attributes) {
                 attrValOutput.append("BA_ \"" + val.attrName + "\" BO_ " + QString::number(ID) + " ");
                 switch (val.value.type())
                 {
@@ -1541,7 +1541,7 @@ bool DBCFile::saveFile(QString fileName)
             //if this signal has attributes then compile them in a special list of attributes
             if (sig->attributes.count() > 0)
             {
-                foreach (DBC_ATTRIBUTE_VALUE val, sig->attributes) {
+                for (const DBC_ATTRIBUTE_VALUE &val : sig->attributes) {
                     attrValOutput.append("BA_ \"" + val.attrName + "\" SG_ " + QString::number(ID) + " " + sig->name + " ");
                     switch (val.value.type())
                     {
@@ -1614,7 +1614,7 @@ bool DBCFile::saveFile(QString fileName)
             break;
         case ATTR_ENUM:
             msgOutput.append("ENUM ");
-            foreach (QString str, dbc_attributes[x].enumVals)
+            for (const QString &str : dbc_attributes[x].enumVals)
             {
                 msgOutput.append("\"" + str + "\",");
             }

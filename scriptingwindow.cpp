@@ -77,7 +77,7 @@ void ScriptingWindow::newFrames(const CANConnection* pConn, const QVector<CANFra
 
     /*for (int j = 0; j < scripts.length(); j++)
     {
-        foreach(const CANFrame& frame, pFrames)
+        for (const CANFrame& frame : pFrames)
         {
             //scripts[j]->gotFrame(frame);
         }
