@@ -221,6 +221,7 @@ HEADERS  += mainwindow.h \
     filterutility.h \
     pcaplite.h
 
+# Common UI files for all platforms
 FORMS    += ui/candatagrid.ui \
     triggerdialog.ui \
     ui/canbridgewindow.ui \
@@ -244,7 +245,6 @@ FORMS    += ui/candatagrid.ui \
     ui/graphingwindow.ui \
     ui/isotp_interpreterwindow.ui \
     ui/mainsettingsdialog.ui \
-    ui/mainwindow.ui \
     ui/motorcontrollerconfigwindow.ui \
     ui/newgraphdialog.ui \
     ui/rangestatewindow.ui \
@@ -256,6 +256,13 @@ FORMS    += ui/candatagrid.ui \
     ui/helpwindow.ui \
     ui/newconnectiondialog.ui \
     ui/temporalgraphwindow.ui
+
+# Platform-specific main window UI
+android {
+    FORMS += ui/mobile/mainwindow.ui
+} else {
+    FORMS += ui/mobile/mainwindow.ui
+}
     
 RESOURCES += \
     icons.qrc \
