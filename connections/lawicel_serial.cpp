@@ -124,7 +124,7 @@ void LAWICELSerial::piSetBusSettings(int pBusIdx, CANBus bus)
 */
     if (pBusIdx < 2) {
         /* update baud rates */
-        QByteArray buffer;
+        QByteArray buffer(1, 0);
         //sendDebug("Got signal to update bauds. 1: " + QString::number((can0Baud & 0xFFFFFFF)));
         buffer[0] = (char)0xF1; //start of a command over serial
         //sendToSerial(buffer);
@@ -135,7 +135,6 @@ void LAWICELSerial::piSetBusSettings(int pBusIdx, CANBus bus)
 
 bool LAWICELSerial::piSendFrame(const CANFrame& frame)
 {
-    QByteArray buffer;
     int c;
     quint32 ID;
 
@@ -156,6 +155,13 @@ bool LAWICELSerial::piSendFrame(const CANFrame& frame)
     ID = frame.frameId();
     if (frame.hasExtendedFrameFormat()) ID |= 1u << 31;
 
+    // Cache payload to avoid multiple temporary objects
+    QByteArray payload = frame.payload();
+    int payloadLen = payload.length();
+
+    // Pre-allocate buffer - max size: 12 (header) + payloadLen*2 (hex) + 1 (CR)
+    QByteArray buffer(12 + payloadLen * 2 + 1, 0);
+    
     int idx = 0;
     QString buildStr;
     if(frame.hasFlexibleDataRateFormat()){
@@ -190,13 +196,13 @@ bool LAWICELSerial::piSendFrame(const CANFrame& frame)
         idx++;
     }
 
-    for (c = 0; c < frame.payload().length(); c++)
+    for (c = 0; c < payloadLen; c++)
     {
-        QString byt = Utility::formatByteAsHex(frame.payload()[c]);
+        QString byt = Utility::formatByteAsHex(payload[c]);
         buffer[idx + (c * 2)] = byt[0].toLatin1();
         buffer[idx + (c * 2) + 1] = byt[1].toLatin1();
     }
-    buffer[idx + (frame.payload().length() * 2)] = 13; //CR
+    buffer[idx + (payloadLen * 2)] = 13; //CR
 
     sendToSerial(buffer);
 

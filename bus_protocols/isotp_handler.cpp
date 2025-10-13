@@ -219,6 +219,7 @@ void ISOTP_HANDLER::processFrame(const CANFrame &frame)
         emit newISOMessage(msg);
         break;
     case 1: //first frame of a multi-frame message
+    {
         checkNeedFlush(ID);
         msg.bus = frame.bus;
         if (frame.payload().count() < 8) return; //MUST have all 8 data bytes in this first frame.
@@ -228,13 +229,15 @@ void ISOTP_HANDLER::processFrame(const CANFrame &frame)
         msg.isReceived = frame.isReceived;
         msg.isMultiframe = true;
         frameLen = frameLen << 8;
+        // Cache payload to avoid accessing destroyed temporary
+        QByteArray payload = frame.payload();
         if (useExtendedAddressing)
         {
             frameLen += data[2];
             frameLen = frameLen & 0xFFF;
             dataBytes.reserve(frameLen);
             msg.reportedLength = frameLen;
-            for (int j = 0; j < 5; j++) dataBytes.append(frame.payload()[3 + j]);
+            for (int j = 0; j < 5; j++) dataBytes.append(payload[3 + j]);
         }
         else
         {
@@ -242,7 +245,7 @@ void ISOTP_HANDLER::processFrame(const CANFrame &frame)
             frameLen = frameLen & 0xFFF;
             msg.payload().reserve(frameLen);
             msg.reportedLength = frameLen;
-            for (int j = 0; j < 6; j++) dataBytes.append(frame.payload()[2 + j]);
+            for (int j = 0; j < 6; j++) dataBytes.append(payload[2 + j]);
         }
         msg.lastSequence = -1;
         msg.setPayload(dataBytes);
@@ -263,7 +266,9 @@ void ISOTP_HANDLER::processFrame(const CANFrame &frame)
             CANConManager::getInstance()->sendFrame(outFrame);
         }
         break;
+    }
     case 2: //subsequent frames for multi-frame messages
+    {
         pMsg = nullptr;
         if (messageBuffer.contains(ID))
         {
@@ -275,15 +280,17 @@ void ISOTP_HANDLER::processFrame(const CANFrame &frame)
         dataBytes.append(pMsg->payload());
         ln = pMsg->reportedLength - pMsg->payload().count();
         //offset = pMsg->data.count();
+        // Cache payload to avoid accessing destroyed temporary
+        QByteArray payload = frame.payload();
         if (useExtendedAddressing)
         {
             if (ln > 6) ln = 6;
-            for (int j = 0; j < ln; j++) dataBytes.append(frame.payload()[j+2]);
+            for (int j = 0; j < ln; j++) dataBytes.append(payload[j+2]);
         }
         else
         {
             if (ln > 7) ln = 7;
-            for (int j = 0; j < ln; j++) dataBytes.append(frame.payload()[j+1]);
+            for (int j = 0; j < ln; j++) dataBytes.append(payload[j+1]);
         }
         pMsg->setPayload(dataBytes);
         if (pMsg->reportedLength <= pMsg->payload().count())
@@ -292,7 +299,9 @@ void ISOTP_HANDLER::processFrame(const CANFrame &frame)
             checkNeedFlush(pMsg->frameId());
         }
         break;
+    }
     case 3: //flow control messages
+    {
         switch (frameLen) //actually flow control type in this case
         {
         case 0: //continue to send frames but maybe change inter-frame delay
@@ -317,6 +326,7 @@ void ISOTP_HANDLER::processFrame(const CANFrame &frame)
         waitingForFlow = false;
 
         break;
+    }
     }
 }
 

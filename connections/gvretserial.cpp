@@ -192,7 +192,7 @@ void GVRetSerial::piSetBusSettings(int pBusIdx, CANBus bus)
 
     if (pBusIdx < 2) {
         /* update baud rates */
-        QByteArray buffer;
+        QByteArray buffer(11, 0);
         sendDebug("Got signal to update bauds. 1: " + QString::number((can0Baud & 0xFFFFFFF)) + " 2: " + QString::number((can1Baud & 0xFFFFFFF)));
         buffer[0] = (char)0xF1; //start of a command over serial
         buffer[1] = 5; //setup canbus
@@ -210,7 +210,7 @@ void GVRetSerial::piSetBusSettings(int pBusIdx, CANBus bus)
     else
     {
         /* update baud rates */
-        QByteArray buffer;
+        QByteArray buffer(15, 0); // Pre-allocate buffer with proper size
         sendDebug("Got signal to update extended bus speeds SWCAN: " + QString::number(swcanBaud) + " LIN1: " + QString::number(lin1Baud) + " LIN2: " + QString::number(lin2Baud));
         buffer[0] = (char)0xF1; //start of a command over serial
         buffer[1] = 14; //setup extended buses
@@ -234,7 +234,6 @@ void GVRetSerial::piSetBusSettings(int pBusIdx, CANBus bus)
 
 bool GVRetSerial::piSendFrame(const CANFrame& frame)
 {
-    QByteArray buffer;
     int c;
     quint32 ID;
 
@@ -256,6 +255,13 @@ bool GVRetSerial::piSendFrame(const CANFrame& frame)
     ID = frame.frameId();
     if (frame.hasExtendedFrameFormat()) ID |= 1u << 31;
 
+    // Cache payload to avoid multiple temporary objects
+    QByteArray payload = frame.payload();
+    int payloadLen = payload.length();
+
+    // Pre-allocate buffer with proper size (8 header bytes + payload + 1 terminator)
+    QByteArray buffer(8 + payloadLen + 1, 0);
+    
     buffer[0] = (char)0xF1; //start of a command over serial
     buffer[1] = 0; //command ID for sending a CANBUS frame
     buffer[2] = (char)(ID & 0xFF); //four bytes of ID LSB first
@@ -263,12 +269,12 @@ bool GVRetSerial::piSendFrame(const CANFrame& frame)
     buffer[4] = (char)(ID >> 16);
     buffer[5] = (char)(ID >> 24);
     buffer[6] = (char)((frame.bus) & 3);
-    buffer[7] = (char)frame.payload().length();
-    for (c = 0; c < frame.payload().length(); c++)
+    buffer[7] = (char)payloadLen;
+    for (c = 0; c < payloadLen; c++)
     {
-        buffer[8 + c] = frame.payload()[c];
+        buffer[8 + c] = payload[c];
     }
-    buffer[8 + frame.payload().length()] = 0;
+    buffer[8 + payloadLen] = 0;
 
     sendToSerial(buffer);
 

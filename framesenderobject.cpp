@@ -409,7 +409,11 @@ void FrameSenderObject::doModifiers(int idx)
             }
         }
         //Finally, drop the result into the proper data byte
-        QByteArray newArr(sendData->payload());
+        // Ensure array is large enough before setting byte
+        QByteArray newArr = sendData->payload();
+        if (newArr.size() <= mod->destByte) {
+            newArr.resize(mod->destByte + 1);
+        }
         newArr[mod->destByte] = (char) shadowReg;
         sendData->setPayload(newArr);
     }
@@ -425,16 +429,20 @@ int FrameSenderObject::fetchOperand(int idx, ModifierOperand op)
     }
     else if (op.ID == -2) //fetch data from a data byte within the output frame
     {
-        if (op.notOper) return ~((unsigned char)sendingData.at(idx).payload()[op.databyte]);
-        else return (unsigned char)sendingData.at(idx).payload()[op.databyte];
+        // Cache payload to avoid accessing destroyed temporary
+        QByteArray payload = sendingData.at(idx).payload();
+        if (op.notOper) return ~((unsigned char)payload[op.databyte]);
+        else return (unsigned char)payload[op.databyte];
     }
     else //look up external data byte
     {
         tempFrame = lookupFrame(op.ID, op.bus);
         if (tempFrame != nullptr)
         {
-            if (op.notOper) return ~((unsigned char)tempFrame->payload()[op.databyte]);
-            else return (unsigned char)tempFrame->payload()[op.databyte];
+            // Cache payload to avoid accessing destroyed temporary
+            QByteArray payload = tempFrame->payload();
+            if (op.notOper) return ~((unsigned char)payload[op.databyte]);
+            else return (unsigned char)payload[op.databyte];
         }
         else return 0;
     }

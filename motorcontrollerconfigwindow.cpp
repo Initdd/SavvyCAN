@@ -71,14 +71,16 @@ void MotorControllerConfigWindow::updatedFrames(int numFrames)
 
             if (id == 0xC2) //response to a query we made
             {
-                if ((char)thisFrame.payload()[2] == 0)
+                // Cache payload to avoid accessing destroyed temporary
+                QByteArray payload = thisFrame.payload();
+                if ((char)payload[2] == 0)
                 {
-                    uint32_t paramID = static_cast<uint32_t>(thisFrame.payload()[0] + (thisFrame.payload()[1] * 256));
+                    uint32_t paramID = static_cast<uint32_t>(payload[0] + (payload[1] * 256));
                     for (int i = 0; i < params.length(); i++)
                     {
                         if (params[i].paramID == paramID)
                         {
-                            params[i].value = static_cast<uint16_t>(thisFrame.payload()[4] + (thisFrame.payload()[5] * 256));
+                            params[i].value = static_cast<uint16_t>(payload[4] + (payload[5] * 256));
                             if (params[i].paramType == ASCII) item = new QTableWidgetItem(); //QString::fromUtf8((char *)params[i].value, 2));
                             if (params[i].paramType == HEX) item = new QTableWidgetItem(Utility::formatHexNum(params[i].value));
                             if (params[i].paramType == DEC)

@@ -158,10 +158,14 @@ bool SocketCANd::piSendFrame(const CANFrame& frame)
     ID = frame.frameId();
     if (frame.hasExtendedFrameFormat()) ID |= 1 << 31;
 
-    QString sendStr = "< send " + QString::number(ID, 16) + " " + QString::number(frame.payload().length()) + " ";
-    for (c = 0; c < frame.payload().length(); c++)
+    // Cache payload to avoid multiple temporary objects
+    QByteArray payload = frame.payload();
+    int payloadLen = payload.length();
+
+    QString sendStr = "< send " + QString::number(ID, 16) + " " + QString::number(payloadLen) + " ";
+    for (c = 0; c < payloadLen; c++)
     {
-       sendStr.append(QString::number(frame.payload()[c], 16) + " ");
+       sendStr.append(QString::number(payload[c], 16) + " ");
     }
     sendStr.append(">");
     std::string str = sendStr.toStdString();

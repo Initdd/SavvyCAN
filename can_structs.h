@@ -37,6 +37,52 @@ public:
         timedelta = 0;
         frameCount = 1;
     }
+
+    // Copy constructor
+    CANFrame(const CANFrame& other) : QCanBusFrame(other)
+    {
+        bus = other.bus;
+        isReceived = other.isReceived;
+        timedelta = other.timedelta;
+        frameCount = other.frameCount;
+    }
+
+    // Copy assignment operator
+    CANFrame& operator=(const CANFrame& other)
+    {
+        if (this != &other)
+        {
+            QCanBusFrame::operator=(other);
+            bus = other.bus;
+            isReceived = other.isReceived;
+            timedelta = other.timedelta;
+            frameCount = other.frameCount;
+        }
+        return *this;
+    }
+
+    // Move constructor
+    CANFrame(CANFrame&& other) noexcept : QCanBusFrame(std::move(other))
+    {
+        bus = other.bus;
+        isReceived = other.isReceived;
+        timedelta = other.timedelta;
+        frameCount = other.frameCount;
+    }
+
+    // Move assignment operator
+    CANFrame& operator=(CANFrame&& other) noexcept
+    {
+        if (this != &other)
+        {
+            QCanBusFrame::operator=(std::move(other));
+            bus = other.bus;
+            isReceived = other.isReceived;
+            timedelta = other.timedelta;
+            frameCount = other.frameCount;
+        }
+        return *this;
+    }
 };
 
 class CANFltObserver
@@ -53,6 +99,8 @@ public:
         return false;
     }
 };
+
+Q_DECLARE_METATYPE(CANFrame)
 
 #endif // CAN_STRUCTS_H
 
