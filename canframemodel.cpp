@@ -43,6 +43,13 @@ int CANFrameModel::columnCount(const QModelIndex &index) const
     return (int)Column::NUM_COLUMN;
 }
 
+QHash<int, QByteArray> CANFrameModel::roleNames() const
+{
+    QHash<int, QByteArray> roles;
+    roles[Qt::DisplayRole] = "display";
+    return roles;
+}
+
 CANFrameModel::CANFrameModel(QObject *parent)
     : QAbstractTableModel(parent)
 {
@@ -761,6 +768,11 @@ void CANFrameModel::addFrame(const CANFrame& frame, bool autoRefresh = false)
 
 void CANFrameModel::addFrames(const CANConnection*, const QVector<CANFrame>& pFrames)
 {
+    if (pFrames.size() > 0) {
+        qDebug() << "CANFrameModel::addFrames - Received" << pFrames.size() << "frames";
+        qDebug() << "  Current frame count:" << frames.length() << "filtered:" << filteredFrames.length();
+    }
+    
     if(frames.length() > frames.capacity() * 0.99)
     {
         mutex.lock();

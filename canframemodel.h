@@ -38,6 +38,7 @@ public:
                         int role = Qt::DisplayRole) const;
     int columnCount(const QModelIndex &) const;
     int totalFrameCount();
+    QHash<int, QByteArray> roleNames() const override;
 
     void sendRefresh();
     void sendRefresh(int);

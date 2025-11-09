@@ -10,7 +10,7 @@
 
 android {
     # Remove Qt modules that don't exist for Android
-    QT = core gui printsupport qml widgets network opengl
+    QT = core gui printsupport qml quick quickcontrols2 widgets network opengl
     qtHaveModule(core5compat): QT += core5compat
     
     # Add Android-specific defines
@@ -27,7 +27,7 @@ android {
                $$PWD/android_stubs/android_stubs.h
 } else {
     # Desktop builds use full Qt modules
-    QT = core gui printsupport qml widgets network opengl
+    QT = core gui printsupport qml quick quickcontrols2 widgets network opengl
     qtHaveModule(serialbus): QT += serialbus
     qtHaveModule(serialport): QT += serialport
     qtHaveModule(core5compat): QT += core5compat
@@ -228,6 +228,7 @@ HEADERS  += mainwindow.h \
 # Common UI files for all platforms
 FORMS    += ui/candatagrid.ui \
     triggerdialog.ui \
+    ui/mainwindow.ui \
     ui/canbridgewindow.ui \
     ui/dbcnodeduplicateeditor.ui \
     ui/dbccomparatorwindow.ui \
@@ -261,16 +262,18 @@ FORMS    += ui/candatagrid.ui \
     ui/newconnectiondialog.ui \
     ui/temporalgraphwindow.ui
 
-# Platform-specific main window UI
-android {
-    FORMS += ui/mobile/mainwindow.ui
-} else {
-    FORMS += ui/mainwindow.ui
-}
-    
 RESOURCES += \
     icons.qrc \
     images.qrc
+    
+android {
+    HEADERS += mobile/mainwindow_mobile_qml.h
+    SOURCES += mobile/mainwindow_mobile_qml.cpp
+    RESOURCES += qml.qrc
+    
+    # Set Android package source directory
+    ANDROID_PACKAGE_SOURCE_DIR = $$PWD/android
+}
 
 win32-msvc* {
    LIBS += opengl32.lib
@@ -308,4 +311,10 @@ helpfiles.path = $$PREFIX/bin/help
 INSTALLS += helpfiles
 
 INSTALLS += target
+
+DISTFILES += \
+    android/AndroidManifest.xml \
+    android/build.gradle \
+    android/res/values/libs.xml \
+    android/res/xml/qtprovider_paths.xml
 

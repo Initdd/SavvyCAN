@@ -1218,9 +1218,22 @@ bool DBCFile::loadFile(QString fileName)
     }
     inFile->close();
     delete inFile;
-    QStringList fileList = fileName.split('/');
-    this->fileName = fileList[fileList.length() - 1]; //whoops... same name as parameter in this function.
-    filePath = fileName.left(fileName.length() - this->fileName.length());
+
+    // Extract filename and path using QFileInfo
+    QFileInfo fileInfo(fileName);
+    QString extractedFileName = fileInfo.fileName();
+    
+    // Handle Android content:// URIs that don't have proper filenames
+    if (extractedFileName.isEmpty() || extractedFileName.contains("%3A") || extractedFileName.contains("msf")) {
+        extractedFileName = fileBaseName + ".dbc";
+    }
+    
+    this->fileName = extractedFileName;
+    filePath = fileInfo.absolutePath();
+    if (!filePath.isEmpty() && !filePath.endsWith('/')) {
+        filePath += '/';
+    }
+    
     assocBuses = -1;
     isDirty = false;
     return true;
@@ -1696,9 +1709,26 @@ bool DBCFile::saveFile(QString fileName)
 
     isDirty = false;
 
-    QStringList fileList = fileName.split('/');
-    this->fileName = fileList[fileList.length() - 1]; //whoops... same name as parameter in this function.
-    filePath = fileName.left(fileName.length() - this->fileName.length());
+    // Extract filename and path using QFileInfo
+    QFileInfo fileInfo(fileName);
+    QString extractedFileName = fileInfo.fileName();
+    
+    // Handle Android content:// URIs that don't have proper filenames
+    if (extractedFileName.isEmpty() || extractedFileName.contains("%3A") || extractedFileName.contains("msf")) {
+        QString baseName = fileInfo.baseName();
+        if (baseName.isEmpty() || baseName.contains("%3A")) {
+            extractedFileName = this->fileName.isEmpty() ? "saved_dbc_file.dbc" : this->fileName;
+        } else {
+            extractedFileName = baseName + ".dbc";
+        }
+    }
+    
+    this->fileName = extractedFileName;
+    filePath = fileInfo.absolutePath();
+    if (!filePath.isEmpty() && !filePath.endsWith('/')) {
+        filePath += '/';
+    }
+    
     return true;
 }
 

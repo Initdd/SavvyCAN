@@ -1,0 +1,12 @@
+<RCC>
+    <qresource prefix="/">
+        <file>qml/MainWindow.qml</file>
+        <file>qml/FramesView.qml</file>
+        <file>qml/ConnectionsView.qml</file>
+        <file>qml/SenderView.qml</file>
+        <file>qml/DBCManagerView.qml</file>
+        <file>qml/ConnectionDialog.qml</file>
+        <file>qml/ThemeManager.qml</file>
+        <file>qml/qmldir</file>
+    </qresource>
+</RCC>
