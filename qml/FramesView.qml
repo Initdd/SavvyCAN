@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Controls.Material 6.5
 
 Page {
     id: framesPage
@@ -14,6 +15,9 @@ Page {
     
     // Track if DBC files are loaded (controlled from C++)
     property bool hasDBCFiles: false
+    
+    // Track whether all rows are expanded
+    property bool allExpanded: false
     
     // Apply theme background
     background: Rectangle {
@@ -38,7 +42,7 @@ Page {
             font.pixelSize: 14
             horizontalAlignment: Text.AlignHCenter
             background: Rectangle {
-                color: ThemeManager.surfaceColor
+                color: statusLabel.text.indexOf("Not Connected") < 0 ? "#2ECC71" : ThemeManager.backgroundColor
                 border.color: ThemeManager.borderColor
                 border.width: 1
                 radius: 4
@@ -52,39 +56,58 @@ Page {
             Layout.fillWidth: true
             spacing: 10
             
-            CheckBox {
+            Button {
                 id: chkOverwrite
-                text: qsTr("Overwrite")
-                font.pixelSize: 14
-                onCheckedChanged: {
-                    overwriteMode = checked
-                    overwriteChanged(checked)
+                width: 36
+                height: 28
+                onClicked: {
+                    overwriteMode = !overwriteMode
+                    overwriteChanged(overwriteMode)
                 }
-                contentItem: Text {
-                    text: chkOverwrite.text
-                    font: chkOverwrite.font
-                    color: ThemeManager.textColor
-                    leftPadding: chkOverwrite.indicator.width + chkOverwrite.spacing
-                    verticalAlignment: Text.AlignVCenter
+                contentItem: Image {
+                    source: overwriteMode ? "qrc:/icons/images/stack.svg" : "qrc:/icons/images/unstack.svg"
+                    anchors.centerIn: parent
+                    fillMode: Image.PreserveAspectFit
+                }
+                ToolTip {
+                    text: overwriteMode ? qsTr("Collapse All") : qsTr("Expand All")
+                }
+                background: Rectangle {
+                    color: parent.pressed ? ThemeManager.buttonPressedColor : 
+                           (parent.hovered ? ThemeManager.buttonHoverColor : "transparent")
+                    border.color: ThemeManager.borderColor 
+                    border.width: 1
+                    radius: 4
                 }
             }
-            
-            CheckBox {
+
+            Button {
                 id: chkInterpret
-                text: qsTr("Interpret")
-                font.pixelSize: 14
+                width: 36
+                height: 28
                 enabled: hasDBCFiles
-                onCheckedChanged: {
+                onClicked: {
                     if (enabled) {
-                        interpretChanged(checked)
+                        var newState = !chkInterpret.checked
+                        chkInterpret.checked = newState
+                        interpretChanged(newState)
                     }
                 }
-                contentItem: Text {
-                    text: chkInterpret.text
-                    font: chkInterpret.font
-                    color: chkInterpret.enabled ? ThemeManager.textColor : ThemeManager.secondaryTextColor
-                    leftPadding: chkInterpret.indicator.width + chkInterpret.spacing
-                    verticalAlignment: Text.AlignVCenter
+                contentItem: Image {
+                    source: "qrc:/icons/images/interpret.svg"
+                    anchors.centerIn: parent
+                    fillMode: Image.PreserveAspectFit
+                    opacity: enabled ? 1.0 : 0.5
+                }
+                ToolTip {
+                    text: qsTr("Interpret CAN frames using DBC files")
+                }
+                background: Rectangle {
+                    color: parent.pressed ? ThemeManager.buttonPressedColor : 
+                           (parent.hovered ? ThemeManager.buttonHoverColor : "transparent")
+                    border.color: ThemeManager.borderColor 
+                    border.width: 1
+                    radius: 4
                 }
             }
             
@@ -93,19 +116,47 @@ Page {
             }
             
             Button {
-                text: qsTr("Clear")
-                font.pixelSize: 14
-                onClicked: clearFrames()
-                contentItem: Text {
-                    text: parent.text
-                    font: parent.font
-                    color: ThemeManager.buttonTextColor
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
+                id: btnExpandAll
+                width: 36
+                height: 28
+                onClicked: {
+                    var setTo = !allExpanded
+                    for (var i = 0; i < framesModel.count; i++) {
+                        framesModel.set(i, { "expanded": setTo })
+                    }
+                    allExpanded = setTo
+                }
+                contentItem: Image {
+                    source: allExpanded ? "qrc:/icons/images/colapse.svg" : "qrc:/icons/images/expand.svg"
+                    anchors.centerIn: parent
+                    fillMode: Image.PreserveAspectFit
+                }
+                ToolTip {
+                    text: allExpanded ? qsTr("Collapse All") : qsTr("Expand All")
                 }
                 background: Rectangle {
                     color: parent.pressed ? ThemeManager.buttonPressedColor : 
-                           (parent.hovered ? ThemeManager.buttonHoverColor : ThemeManager.buttonColor)
+                           (parent.hovered ? ThemeManager.buttonHoverColor : "transparent")
+                    border.color: ThemeManager.borderColor 
+                    border.width: 1
+                    radius: 4
+                }
+            }
+            
+            Button {
+                id: btnClear
+                width: 36
+                height: 28
+                onClicked: clearFrames()
+                contentItem: Image {
+                    source: "qrc:/icons/images/clear.svg"
+                    anchors.centerIn: parent
+                    fillMode: Image.PreserveAspectFit
+                }
+                ToolTip { text: qsTr("Clear") }
+                background: Rectangle {
+                    color: parent.pressed ? ThemeManager.buttonPressedColor : 
+                           (parent.hovered ? ThemeManager.buttonHoverColor : "transparent")
                     border.color: ThemeManager.borderColor
                     border.width: 1
                     radius: 4
@@ -138,11 +189,12 @@ Page {
                     
                     delegate: Rectangle {
                         width: canFramesListView.width
-                        height: 70
+                        // row height grows when expanded to fit contentColumn implicitHeight
+                        height: expanded ? Math.max(70, contentColumn.implicitHeight + 8) : 70
                         color: index % 2 ? ThemeManager.frameEvenRow : ThemeManager.frameOddRow
                         border.color: ThemeManager.frameBorder
                         border.width: 1
-                        
+
                         required property int index
                         required property string timestamp
                         required property string frameId
@@ -152,61 +204,69 @@ Page {
                         required property int bus
                         required property int length
                         required property string dataHex
-                        
+                        // whether this row is expanded to show full text (model role)
+                        required property bool expanded
+
                         ColumnLayout {
+                            id: contentColumn
                             anchors.fill: parent
                             anchors.margins: 4
                             spacing: 2
-                            
+
                             RowLayout {
                                 Layout.fillWidth: true
                                 spacing: 8
-                                
+
                                 Label {
                                     text: "ID: " + frameId
                                     font.bold: true
                                     font.pixelSize: 13
                                     color: ThemeManager.textColor
                                 }
-                                
+
                                 Label {
                                     text: "[Ext]"
                                     font.pixelSize: 10
                                     color: ThemeManager.secondaryTextColor
                                     visible: extended
                                 }
-                                
+
                                 Label {
                                     text: "[RTR]"
                                     font.pixelSize: 10
                                     color: ThemeManager.secondaryTextColor
                                     visible: remote
                                 }
-                                
+
                                 Item { Layout.fillWidth: true }
-                                
                                 Label {
                                     text: "Bus " + bus
                                     font.pixelSize: 11
                                     color: ThemeManager.secondaryTextColor
                                 }
-                                
+
                                 Label {
                                     text: direction
                                     font.pixelSize: 11
                                     color: direction === "Rx" ? ThemeManager.rxColor : ThemeManager.txColor
                                 }
                             }
-                            
-                            Label {
+
+                            // Data text: show one line with elide when collapsed, wrap and show full content when expanded
+                            Text {
+                                id: dataText
                                 Layout.fillWidth: true
                                 text: "Data [" + length + "]: " + dataHex
                                 font.pixelSize: 12
                                 font.family: "Monospace"
                                 color: ThemeManager.textColor
-                                elide: Text.ElideRight
+                                wrapMode: expanded ? Text.WordWrap : Text.NoWrap
+                                elide: expanded ? Text.ElideNone : Text.ElideRight
+                                horizontalAlignment: Text.AlignLeft
+                                verticalAlignment: Text.AlignVCenter
+                                // clicking is handled by the full-row MouseArea below
                             }
-                            
+
                             Label {
                                 Layout.fillWidth: true
                                 text: "Delta: " + timestamp + " s"
@@ -214,6 +274,19 @@ Page {
                                 color: ThemeManager.tertiaryTextColor
                             }
                         }
+
+                        // clip children so when collapsed wrapped text doesn't overflow into next row
+                        clip: true
+
+                        // whole-row click toggles expansion
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: framesModel.set(index, { "expanded": !expanded })
+                        }
+
+                        // dynamic height handled by binding above
                     }
                     
                     // Show message when empty
@@ -274,7 +347,8 @@ Page {
             var found = false
             for (var i = 0; i < framesModel.count; i++) {
                 if (framesModel.get(i).frameId === frameId && framesModel.get(i).bus === bus) {
-                    // Update existing frame
+                    // Update existing frame (preserve expanded state if present)
+                    var prevExpanded = framesModel.get(i).expanded ? framesModel.get(i).expanded : false
                     framesModel.set(i, {
                         "timestamp": timestamp,
                         "frameId": frameId,
@@ -283,7 +357,8 @@ Page {
                         "direction": direction,
                         "bus": bus,
                         "length": length,
-                        "dataHex": dataHex
+                        "dataHex": dataHex,
+                        "expanded": prevExpanded
                     })
                     found = true
                     console.log("  Updated existing frame at index", i)
@@ -301,7 +376,8 @@ Page {
                     "direction": direction,
                     "bus": bus,
                     "length": length,
-                    "dataHex": dataHex
+                    "dataHex": dataHex,
+                    "expanded": false
                 })
                 console.log("  Appended new frame. Total count:", framesModel.count)
             }
@@ -315,7 +391,8 @@ Page {
                 "direction": direction,
                 "bus": bus,
                 "length": length,
-                "dataHex": dataHex
+                "dataHex": dataHex,
+                "expanded": false
             })
             
             // Limit the number of frames to prevent performance issues

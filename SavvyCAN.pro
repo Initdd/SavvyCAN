@@ -269,7 +269,10 @@ RESOURCES += \
 android {
     HEADERS += mobile/mainwindow_mobile_qml.h
     SOURCES += mobile/mainwindow_mobile_qml.cpp
-    RESOURCES += qml.qrc
+    # Include QML plus image/icon resource bundles for Android so resources are available
+    RESOURCES += qml.qrc \
+                 icons.qrc \
+                 images.qrc
     
     # Set Android package source directory
     ANDROID_PACKAGE_SOURCE_DIR = $$PWD/android

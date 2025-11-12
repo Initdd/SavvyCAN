@@ -17,5 +17,11 @@
         <file>images/message_new.png</file>
         <file>images/move_up.png</file>
         <file>images/move_down.png</file>
+        <file>images/clear.svg</file>
+        <file>images/expand.svg</file>
+        <file>images/colapse.svg</file>
+        <file>images/interpret.svg</file>
+        <file>images/stack.svg</file>
+        <file>images/unstack.svg</file>
     </qresource>
 </RCC>
