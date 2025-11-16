@@ -10,7 +10,7 @@
 
 android {
     # Remove Qt modules that don't exist for Android
-    QT = core gui printsupport qml quick quickcontrols2 widgets network opengl
+    QT = core gui printsupport qml quick quickcontrols2 widgets network opengl charts
     qtHaveModule(core5compat): QT += core5compat
     
     # Add Android-specific defines
@@ -27,7 +27,7 @@ android {
                $$PWD/android_stubs/android_stubs.h
 } else {
     # Desktop builds use full Qt modules
-    QT = core gui printsupport qml quick quickcontrols2 widgets network opengl
+    QT = core gui printsupport qml quick quickcontrols2 widgets network opengl charts
     qtHaveModule(serialbus): QT += serialbus
     qtHaveModule(serialport): QT += serialport
     qtHaveModule(core5compat): QT += core5compat
@@ -267,8 +267,12 @@ RESOURCES += \
     images.qrc
     
 android {
-    HEADERS += mobile/mainwindow_mobile_qml.h
-    SOURCES += mobile/mainwindow_mobile_qml.cpp
+    HEADERS += mobile/mainwindow_mobile_qml.h \
+               mobile/graphcontroller.h \
+               mobile/dbcpersistencemanager.h
+    SOURCES += mobile/mainwindow_mobile_qml.cpp \
+               mobile/graphcontroller.cpp \
+               mobile/dbcpersistencemanager.cpp
     # Include QML plus image/icon resource bundles for Android so resources are available
     RESOURCES += qml.qrc \
                  icons.qrc \

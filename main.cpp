@@ -9,6 +9,7 @@
 #include <QQuickStyle>
 #include <QUrl>
 #include "mobile/mainwindow_mobile_qml.h"
+#include "mobile/dbcpersistencemanager.h"
 #endif
 
 class SavvyCANApplication : public QApplication
@@ -64,18 +65,28 @@ int main(int argc, char *argv[])
     
     QQmlApplicationEngine engine;
     
+    // Create the DBC persistence manager and expose it to QML
+    DbcPersistenceManager *dbcPersistenceManager = new DbcPersistenceManager();
+    engine.rootContext()->setContextProperty("dbcPersistenceManager", QVariant::fromValue(dbcPersistenceManager));
+    
+    // Create the C++ backend controller BEFORE loading QML
+    // This ensures context properties are set before QML accesses them
+    MainWindowMobileQML *mainWindow = new MainWindowMobileQML(&engine);
+    
     // Load the main QML file
     const QUrl url(QStringLiteral("qrc:/qml/MainWindow.qml"));
     
     qDebug() << "Loading QML from:" << url;
     
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
-                     &a, [url](QObject *obj, const QUrl &objUrl) {
+                     &a, [url, mainWindow](QObject *obj, const QUrl &objUrl) {
         if (!obj && url == objUrl) {
             qCritical() << "Failed to load QML!";
             QCoreApplication::exit(-1);
         } else if (obj) {
             qDebug() << "QML loaded successfully!";
+            // Connect QML signals after QML is loaded
+            mainWindow->connectQMLSignals();
         }
     }, Qt::QueuedConnection);
     
@@ -86,12 +97,10 @@ int main(int argc, char *argv[])
         return -1;
     }
     
-    // Create the C++ backend controller
-    MainWindowMobileQML *mainWindow = new MainWindowMobileQML(&engine);
-    
     int retCode = a.exec();
     
     delete mainWindow;
+    delete dbcPersistenceManager;
     
     return retCode;
 #else

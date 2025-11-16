@@ -236,6 +236,14 @@ Page {
             if (path.startsWith("file://")) {
                 path = path.substring(7)
             }
+            
+            // Save the URI for persistence (before actually loading it)
+            if (typeof dbcPersistenceManager !== 'undefined' && dbcPersistenceManager) {
+                var fullUri = selectedFile.toString()
+                console.log("DBCManagerView: Saving DBC URI for persistence: " + fullUri)
+                dbcPersistenceManager.saveDbcUri(fullUri)
+            }
+            
             loadDBCFile(path)
         }
     }
@@ -260,8 +268,59 @@ Page {
     }
     
     function removeDBCFileItem(index) {
-        dbcFilesModel.remove(index)
-        removeDBCFile(index)
-        updateFileCount(dbcFilesModel.count)
+        // Get the file path before removing from model
+        if (index >= 0 && index < dbcFilesModel.count) {
+            var fullPath = dbcFilesModel.get(index).fullPath
+            
+            // Remove from persistence (convert path back to URI if needed)
+            if (typeof dbcPersistenceManager !== 'undefined' && dbcPersistenceManager) {
+                // Convert file path back to URI format for persistence manager
+                var uri = fullPath
+                if (!uri.startsWith("content://") && !uri.startsWith("file://")) {
+                    uri = "file://" + fullPath
+                }
+                console.log("DBCManagerView: Removing DBC URI from persistence: " + uri)
+                dbcPersistenceManager.removeDbcUri(uri)
+            }
+            
+            dbcFilesModel.remove(index)
+            removeDBCFile(index)
+            updateFileCount(dbcFilesModel.count)
+        }
+    }
+    
+    // Load saved DBC files from persistence
+    function loadSavedDbcFiles() {
+        if (typeof dbcPersistenceManager === 'undefined' || !dbcPersistenceManager) {
+            console.log("DBCManagerView: Persistence manager not available, skipping auto-load")
+            return
+        }
+        
+        console.log("DBCManagerView: Cleaning up invalid URIs...")
+        var invalidUris = dbcPersistenceManager.cleanupInvalidUris()
+        if (invalidUris.length > 0) {
+            console.log("DBCManagerView: Removed " + invalidUris.length + " invalid URIs")
+        }
+        
+        var savedUris = dbcPersistenceManager.getSavedDbcUris()
+        console.log("DBCManagerView: Found " + savedUris.length + " saved DBC file URIs")
+        
+        for (var i = 0; i < savedUris.length; i++) {
+            var uriString = savedUris[i]
+            console.log("DBCManagerView: Loading saved DBC file: " + uriString)
+            
+            // Convert URI to path for loading
+            var path = uriString
+            if (path.startsWith("file://")) {
+                path = path.substring(7)
+            }
+            
+            // Load the DBC file
+            loadDBCFile(path)
+        }
+        
+        if (savedUris.length > 0) {
+            console.log("DBCManagerView: Finished loading " + savedUris.length + " saved DBC files")
+        }
     }
 }

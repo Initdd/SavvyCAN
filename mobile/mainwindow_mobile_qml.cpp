@@ -1,6 +1,7 @@
 #include "mainwindow_mobile_qml.h"
 #include "connections/canconfactory.h"
 #include "dbc/dbchandler.h"
+#include "graphcontroller.h"
 #include <QDebug>
 #include <QQmlProperty>
 #include <QTimer>
@@ -24,8 +25,10 @@ MainWindowMobileQML::MainWindowMobileQML(QQmlApplicationEngine *engine, QObject 
     , m_connectionsView(nullptr)
     , m_senderView(nullptr)
     , m_dbcManagerView(nullptr)
+    , m_graphView(nullptr)
     , frameModel(nullptr)
     , canManager(nullptr)
+    , graphController(nullptr)
     , senderTimer(nullptr)
     , updateTimer(nullptr)
     , m_connectionUpdateTimer(nullptr)
@@ -35,6 +38,24 @@ MainWindowMobileQML::MainWindowMobileQML(QQmlApplicationEngine *engine, QObject 
     , m_connectionDialogOpen(false)
 {
     selfRef = this;
+    
+    // Initialize model
+    frameModel = new CANFrameModel(this);
+    
+    // Initialize graph controller
+    graphController = new GraphController(this);
+    
+    // Expose to QML BEFORE loading QML
+    m_engine->rootContext()->setContextProperty("mainWindowQML", this);
+    m_engine->rootContext()->setContextProperty("frameModel", frameModel);
+    m_engine->rootContext()->setContextProperty("graphController", graphController);
+    
+    qDebug() << "MainWindowMobileQML: Context properties set, ready to load QML";
+}
+
+void MainWindowMobileQML::connectQMLSignals()
+{
+    qDebug() << "MainWindowMobileQML: Connecting to QML signals...";
     
     // Get root object from QML
     const QList<QObject *> rootObjects = m_engine->rootObjects();
@@ -46,12 +67,14 @@ MainWindowMobileQML::MainWindowMobileQML(QQmlApplicationEngine *engine, QObject 
         m_connectionsView = m_rootObject->findChild<QObject*>("connectionsView");
         m_senderView = m_rootObject->findChild<QObject*>("senderView");
         m_dbcManagerView = m_rootObject->findChild<QObject*>("dbcManagerView");
+        m_graphView = m_rootObject->findChild<QObject*>("graphView");
         
         qDebug() << "QML views found:";
         qDebug() << "  framesView:" << (m_framesView ? "YES" : "NO");
         qDebug() << "  connectionsView:" << (m_connectionsView ? "YES" : "NO");
         qDebug() << "  senderView:" << (m_senderView ? "YES" : "NO");
         qDebug() << "  dbcManagerView:" << (m_dbcManagerView ? "YES" : "NO");
+        qDebug() << "  graphView:" << (m_graphView ? "YES" : "NO");
         
         // Connect QML signals to C++ slots
         if (m_framesView) {
@@ -88,12 +111,6 @@ MainWindowMobileQML::MainWindowMobileQML(QQmlApplicationEngine *engine, QObject 
         }
     }
     
-    // Initialize model
-    frameModel = new CANFrameModel(this);
-    
-    // Expose the frame model to QML
-    m_engine->rootContext()->setContextProperty("frameModel", frameModel);
-    
     // Get CAN manager singleton
     canManager = CANConManager::getInstance();
     
@@ -126,22 +143,39 @@ MainWindowMobileQML::MainWindowMobileQML(QQmlApplicationEngine *engine, QObject 
     
     // Initialize DBC file list and interpret checkbox state after a small delay
     // to ensure QML views are fully loaded
-    // Only update if there are actually DBC files loaded
-    QTimer::singleShot(100, this, [this]() {
-        DBCHandler* dbcHandler = DBCHandler::getReference();
-        if (dbcHandler && dbcHandler->getFileCount() > 0) {
-            qDebug() << "Initializing DBC UI with" << dbcHandler->getFileCount() << "files";
-            updateDBCFileList();
-            updateInterpretCheckboxState();
-        } else {
-            qDebug() << "No DBC files to load at startup";
-            // Just ensure the interpret checkbox is disabled
-            if (m_framesView) {
-                QMetaObject::invokeMethod(m_framesView, "setHasDBCFiles", 
-                    Qt::AutoConnection,
-                    Q_ARG(QVariant, false));
+    // First try to load saved DBC files from persistence, then update the UI
+    QTimer::singleShot(500, this, [this]() {
+        qDebug() << "MainWindowMobileQML: Starting DBC persistence auto-load";
+        
+        // Try to load saved DBC files from persistence
+        if (m_dbcManagerView) {
+            qDebug() << "MainWindowMobileQML: Calling loadSavedDbcFiles on QML";
+            bool success = QMetaObject::invokeMethod(m_dbcManagerView, "loadSavedDbcFiles", 
+                Qt::AutoConnection);
+            if (!success) {
+                qWarning() << "MainWindowMobileQML: Failed to invoke loadSavedDbcFiles";
             }
+        } else {
+            qWarning() << "MainWindowMobileQML: m_dbcManagerView not available";
         }
+        
+        // After a brief delay, update the DBC UI with whatever files are now loaded
+        QTimer::singleShot(200, this, [this]() {
+            DBCHandler* dbcHandler = DBCHandler::getReference();
+            if (dbcHandler && dbcHandler->getFileCount() > 0) {
+                qDebug() << "Initializing DBC UI with" << dbcHandler->getFileCount() << "files";
+                updateDBCFileList();
+                updateInterpretCheckboxState();
+            } else {
+                qDebug() << "No DBC files loaded after persistence check";
+                // Just ensure the interpret checkbox is disabled
+                if (m_framesView) {
+                    QMetaObject::invokeMethod(m_framesView, "setHasDBCFiles", 
+                        Qt::AutoConnection,
+                        Q_ARG(QVariant, false));
+                }
+            }
+        });
     });
     
     // Set up UDP broadcast receivers for device discovery
@@ -945,10 +979,7 @@ void MainWindowMobileQML::framesReceived(CANConnection* conn, QVector<CANFrame>&
     Q_UNUSED(conn);
     
     if (frames.size() > 0) {
-        qDebug() << "MainWindowMobileQML::framesReceived - Got" << frames.size() << "frames";
-        qDebug() << "  First frame ID:" << Qt::hex << frames[0].frameId() << "Len:" << frames[0].payload().length();
-        qDebug() << "  m_framesView is:" << (m_framesView ? "valid" : "NULL");
-        qDebug() << "  Interpret mode:" << (frameModel->getInterpretMode() ? "ON" : "OFF");
+        // Intentionally silence per-batch frame logs to reduce runtime noise
         
         // Get DBC handler for interpretation
         DBCHandler* dbcHandler = DBCHandler::getReference();
@@ -1033,12 +1064,18 @@ void MainWindowMobileQML::framesReceived(CANConnection* conn, QVector<CANFrame>&
                 if (success) {
                     successCount++;
                 } else {
-                    qDebug() << "Warning: Failed to invoke addCANFrame on frames view for frame" << frameId;
+                    // Silenced: failed to invoke addCANFrame; avoid noisy logs in production
                 }
             }
-            qDebug() << "  Successfully added" << successCount << "of" << frames.size() << "frames to QML";
         } else {
-            qDebug() << "Warning: m_framesView is null, cannot add frames to QML";
+            // Silenced: frames view not available
+        }
+        
+        // Send frames to graph controller for graphing
+        if (graphController) {
+            for (const CANFrame& frame : frames) {
+                graphController->processFrame(frame);
+            }
         }
     }
     
@@ -1048,7 +1085,6 @@ void MainWindowMobileQML::framesReceived(CANConnection* conn, QVector<CANFrame>&
     // Update the frame count in the UI
     int totalFrames = frameModel->rowCount();
     setFrameCount(totalFrames);
-    qDebug() << "Total frames in model:" << totalFrames;
 }
 
 void MainWindowMobileQML::readPendingDatagrams()
@@ -1359,9 +1395,134 @@ void MainWindowMobileQML::updateInterpretCheckboxState()
     if (!success) {
         qDebug() << "Warning: Failed to invoke setHasDBCFiles on frames view";
     }
+}
+
+void MainWindowMobileQML::handleAddFrameToGraph(uint32_t frameId, int bus)
+{
+    qDebug() << "=== handleAddFrameToGraph called ===";
+    qDebug() << "  Frame ID: 0x" << QString::number(frameId, 16);
+    qDebug() << "  Bus:" << bus;
     
-    // If no DBC files are loaded, disable interpretation
-    if (!hasDBCFiles) {
-        frameModel->setInterpretMode(false);
+    if (!graphController) {
+        qDebug() << "  ERROR: graphController is null!";
+        return;
+    }
+    
+    // Clear existing graph (single graph mode - replace on each add)
+    qDebug() << "  Clearing existing signals...";
+    graphController->clearAllSignals();
+    
+    // Check if DBC is available for this frame
+    DBCHandler* dbcHandler = DBCHandler::getReference();
+    DBC_MESSAGE* message = nullptr;
+    
+    if (dbcHandler) {
+        // Try to find the message for this frame ID
+        // We need to create a temporary CANFrame to search
+        CANFrame tempFrame;
+        tempFrame.setFrameId(frameId);
+        tempFrame.bus = bus;
+        message = dbcHandler->findMessage(tempFrame);
+    }
+    
+    if (message && message->sigHandler && message->sigHandler->getCount() > 0) {
+        qDebug() << "  DBC message found:" << message->name << "with" << message->sigHandler->getCount() << "signals";
+        
+        // Show signal picker dialog in QML
+        if (m_graphView) {
+            // Pass the frame ID, bus, and signal list to QML
+            QVariantList signalList;
+            for (int i = 0; i < message->sigHandler->getCount(); i++) {
+                DBC_SIGNAL* sig = message->sigHandler->findSignalByIdx(i);
+                if (sig) {
+                    QVariantMap signalInfo;
+                    signalInfo["name"] = sig->name;
+                    signalInfo["startBit"] = sig->startBit;
+                    signalInfo["signalSize"] = sig->signalSize;
+                    signalInfo["isLittleEndian"] = sig->intelByteOrder;
+                    signalInfo["isSigned"] = sig->valType == DBC_SIG_VAL_TYPE::SIGNED_INT;
+                    signalList.append(signalInfo);
+                }
+            }
+            
+            QMetaObject::invokeMethod(m_graphView, "showSignalPicker",
+                Qt::AutoConnection,
+                Q_ARG(QVariant, frameId),
+                Q_ARG(QVariant, bus),
+                Q_ARG(QVariant, message->name),
+                Q_ARG(QVariant, signalList)
+            );
+        }
+    } else {
+        qDebug() << "  No DBC message found, graphing entire frame as single value";
+        // No DBC available, just graph the whole frame
+        graphController->addFrameSignal(frameId, bus);
+        qDebug() << "  Frame added to graph successfully";
     }
 }
+
+void MainWindowMobileQML::handleAddSignalToGraph(uint32_t frameId, int bus, const QString& signalName)
+{
+    qDebug() << "=== handleAddSignalToGraph called ===";
+    qDebug() << "  Frame ID: 0x" << QString::number(frameId, 16);
+    qDebug() << "  Bus:" << bus;
+    qDebug() << "  Signal name:" << signalName;
+    
+    if (!graphController) {
+        qDebug() << "  ERROR: graphController is null!";
+        return;
+    }
+    
+    // Clear existing graph (single graph mode - replace on each add)
+    qDebug() << "  Clearing existing signals...";
+    graphController->clearAllSignals();
+    
+    // Check if DBC is available for this frame
+    DBCHandler* dbcHandler = DBCHandler::getReference();
+    DBC_MESSAGE* message = nullptr;
+    
+    if (dbcHandler) {
+        // Try to find the message for this frame ID
+        CANFrame tempFrame;
+        tempFrame.setFrameId(frameId);
+        tempFrame.bus = bus;
+        message = dbcHandler->findMessage(tempFrame);
+    }
+    
+    if (message && message->sigHandler && message->sigHandler->getCount() > 0) {
+        qDebug() << "  DBC message found:" << message->name << "with" << message->sigHandler->getCount() << "signals";
+        
+        // Find the specific signal by name
+        DBC_SIGNAL* targetSignal = nullptr;
+        for (int i = 0; i < message->sigHandler->getCount(); i++) {
+            DBC_SIGNAL* sig = message->sigHandler->findSignalByIdx(i);
+            if (sig && sig->name == signalName) {
+                targetSignal = sig;
+                break;
+            }
+        }
+        
+        if (targetSignal) {
+            qDebug() << "  Found signal:" << targetSignal->name;
+            qDebug() << "  Adding signal to graph...";
+            
+            // Add the signal to the graph
+            graphController->addSignal(
+                frameId,
+                bus,
+                targetSignal->startBit,
+                targetSignal->signalSize,
+                targetSignal->valType == DBC_SIG_VAL_TYPE::SIGNED_INT,
+                targetSignal->intelByteOrder,
+                targetSignal->name
+            );
+            
+            qDebug() << "  Signal added to graph successfully";
+        } else {
+            qDebug() << "  ERROR: Signal not found:" << signalName;
+        }
+    } else {
+        qDebug() << "  ERROR: No DBC message found for frame ID 0x" << QString::number(frameId, 16);
+    }
+}
+

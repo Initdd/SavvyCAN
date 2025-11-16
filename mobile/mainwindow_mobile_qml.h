@@ -13,6 +13,9 @@
 #include "connections/canconnection.h"
 #include "canframemodel.h"
 
+// Forward declarations
+class GraphController;
+
 class MainWindowMobileQML : public QObject
 {
     Q_OBJECT
@@ -32,6 +35,9 @@ public:
     // Property getters
     QString statusText() const { return m_statusText; }
     int frameCount() const { return m_frameCount; }
+    
+    // Initialize QML connections after QML is loaded
+    void connectQMLSignals();
 
 signals:
     void framesUpdated(int numFrames);
@@ -73,6 +79,10 @@ public slots:
     void handleRemoveDBCFile(int index);
     void handleRefreshDBCList();
     
+    // Graph tab
+    void handleAddFrameToGraph(uint32_t frameId, int bus);
+    void handleAddSignalToGraph(uint32_t frameId, int bus, const QString& signalName);
+    
     // CAN connection events
     void connectionStatusUpdated(int connNum);
     void framesReceived(CANConnection* conn, QVector<CANFrame>& frames);
@@ -95,9 +105,11 @@ private:
     QObject *m_connectionsView;
     QObject *m_senderView;
     QObject *m_dbcManagerView;
+    QObject *m_graphView;
     
     CANFrameModel *frameModel;
     CANConManager *canManager;
+    GraphController *graphController;
     
     // Timers
     QTimer *senderTimer;

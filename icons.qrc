@@ -23,5 +23,7 @@
         <file>images/interpret.svg</file>
         <file>images/stack.svg</file>
         <file>images/unstack.svg</file>
+        <file>images/open_graph.svg</file>
+        <file>images/exit_graph.svg</file>
     </qresource>
 </RCC>

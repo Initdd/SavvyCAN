@@ -5,6 +5,7 @@
         <file>qml/ConnectionsView.qml</file>
         <file>qml/SenderView.qml</file>
         <file>qml/DBCManagerView.qml</file>
+        <file>qml/GraphView.qml</file>
         <file>qml/ConnectionDialog.qml</file>
         <file>qml/ThemeManager.qml</file>
         <file>qml/qmldir</file>
