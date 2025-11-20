@@ -11,7 +11,7 @@ Dialog {
     width: 500
     height: 600
     
-    property string selectedType: "MQTT"
+    property string selectedType: "SocketCAN"
     property string hostAddress: ""
     property string port: ""
     property string devicePath: ""
@@ -117,46 +117,11 @@ Dialog {
             ColumnLayout {
                 anchors.fill: parent
                 spacing: 10
-                
-                RadioButton {
-                    id: rbMQTT
-                    text: qsTr("MQTT (Wireless)")
-                    checked: true
-                    onCheckedChanged: if (checked) connectionDialog.selectedType = "MQTT"
-                    
-                    indicator: Rectangle {
-                        implicitWidth: 20
-                        implicitHeight: 20
-                        x: rbMQTT.leftPadding
-                        y: parent.height / 2 - height / 2
-                        radius: 10
-                        border.color: rbMQTT.checked ? ThemeManager.accentColor : ThemeManager.borderColor
-                        border.width: 2
-                        color: "transparent"
-                        
-                        Rectangle {
-                            width: 10
-                            height: 10
-                            x: 5
-                            y: 5
-                            radius: 5
-                            color: ThemeManager.accentColor
-                            visible: rbMQTT.checked
-                        }
-                    }
-                    
-                    contentItem: Text {
-                        text: rbMQTT.text
-                        font: rbMQTT.font
-                        color: ThemeManager.textColor
-                        leftPadding: rbMQTT.indicator.width + rbMQTT.spacing
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                }
-                
+
                 RadioButton {
                     id: rbSocketCAN
                     text: qsTr("SocketCAN (Network)")
+                    checked: true
                     onCheckedChanged: if (checked) connectionDialog.selectedType = "SocketCAN"
                     
                     indicator: Rectangle {
@@ -226,82 +191,9 @@ Dialog {
             }
         }
         
-        // MQTT settings
-        GroupBox {
-            Layout.fillWidth: true
-            Layout.leftMargin: 0
-            Layout.rightMargin: 0
-            title: qsTr("MQTT Settings")
-            visible: rbMQTT.checked
-            
-            background: Rectangle {
-                color: ThemeManager.groupBoxBackground
-                border.color: ThemeManager.borderColor
-                border.width: 1
-                radius: 4
-            }
-            
-            label: Label {
-                x: parent.leftPadding
-                width: parent.availableWidth
-                text: parent.title
-                color: ThemeManager.textColor
-                font.pixelSize: 14
-            }
-            
-            GridLayout {
-                anchors.fill: parent
-                columns: 2
-                columnSpacing: 10
-                rowSpacing: 10
-                
-                Label {
-                    text: qsTr("Broker:")
-                    color: ThemeManager.textColor
-                    font.pixelSize: 13
-                }
-                
-                TextField {
-                    id: txtMqttHost
-                    Layout.fillWidth: true
-                    text: connectionDialog.hostAddress
-                    color: ThemeManager.textColor
-                    onTextChanged: connectionDialog.hostAddress = text
-                    padding: 8
-                    background: Rectangle {
-                        color: ThemeManager.inputBackgroundColor
-                        border.color: parent.activeFocus ? ThemeManager.inputFocusBorderColor : ThemeManager.inputBorderColor
-                        border.width: 1
-                        radius: 3
-                    }
-                }
-                
-                Label {
-                    text: qsTr("Port:")
-                    color: ThemeManager.textColor
-                    font.pixelSize: 13
-                }
-                
-                TextField {
-                    id: txtMqttPort
-                    Layout.fillWidth: true
-                    text: connectionDialog.port
-                    color: ThemeManager.textColor
-                    inputMethodHints: Qt.ImhDigitsOnly
-                    onTextChanged: connectionDialog.port = text
-                    padding: 8
-                    background: Rectangle {
-                        color: ThemeManager.inputBackgroundColor
-                        border.color: parent.activeFocus ? ThemeManager.inputFocusBorderColor : ThemeManager.inputBorderColor
-                        border.width: 1
-                        radius: 3
-                    }
-                }
-            }
-        }
-        
         // SocketCAN settings
         GroupBox {
+
             Layout.fillWidth: true
             Layout.leftMargin: 0
             Layout.rightMargin: 0
@@ -867,11 +759,5 @@ Dialog {
         }
     }
     
-    // Function to set default MQTT settings
-    function setDefaultMqttSettings(host, port) {
-        hostAddress = host
-        connectionDialog.port = port
-        txtMqttHost.text = host
-        txtMqttPort.text = port
-    }
+
 }

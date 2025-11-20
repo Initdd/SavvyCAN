@@ -401,20 +401,7 @@ void MainWindowMobileQML::handleCreateConnection(const QString &type, const QStr
     
     CANConnection* conn = nullptr;
     
-    if (type == "MQTT") {
-        qDebug() << "Creating MQTT connection...";
-        QString mqttAddress = host + ":" + port;
-        conn = CanConFactory::create(
-            CANCon::MQTT,
-            mqttAddress,
-            "",
-            0,
-            canSpeed,
-            false,
-            0
-        );
-    }
-    else if (type == "SocketCAN") {
+    if (type == "SocketCAN") {
         qDebug() << "Creating SocketCAN connection...";
         
         // Parse the host string - it might be prefixed with "SocketCANd: " or "GVRET Remote: "
@@ -1233,10 +1220,6 @@ void MainWindowMobileQML::updateConnectionsList()
                     if (conns[i]->getNumBuses() > 1) {
                         name += QString(" (%1 buses)").arg(conns[i]->getNumBuses());
                     }
-                    break;
-                case CANCon::MQTT: 
-                    type = "MQTT"; 
-                    name = QString("MQTT %1").arg(i + 1);
                     break;
                 case CANCon::LAWICEL: 
                     type = "Lawicel"; 
