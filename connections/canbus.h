@@ -7,6 +7,7 @@ class CANBus
 {
     int speed;
     bool listenOnly;
+    bool terminated;
     bool singleWire;
     bool active; //is this bus turned on?
     bool canFD;
@@ -21,6 +22,7 @@ public:
 
     void setSpeed(int); // new speed
     void setListenOnly(bool); //bool for whether to only listen
+    void setTerminated(bool); //bool for whether the bus is terminated
     void setSingleWire(bool); //bool for whether to use single wire mode
     void setActive(bool); //whether this bus should be enabled or not.
     void setCanFD(bool); // enable or disable CANFD support
@@ -29,6 +31,7 @@ public:
     int getSpeed() const;
     int getDataRate() const;
     bool isListenOnly() const;
+    bool isTerminated() const;
     bool isSingleWire() const;
     bool isActive() const;
     bool isCanFD() const;

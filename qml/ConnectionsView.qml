@@ -271,6 +271,17 @@ Page {
                     id: ckEnableBus
                     Layout.fillWidth: true
                 }
+
+                Label {
+                    text: qsTr("Termination:")
+                    font.pixelSize: 14
+                    color: ThemeManager.textColor
+                }
+                
+                CheckBox {
+                    id: ckTermination
+                    Layout.fillWidth: true
+                }
             }
         }
         
@@ -336,6 +347,14 @@ Page {
     
     function getEnableBus() {
         return ckEnableBus.checked
+    }
+    
+    function setTermination(terminated) {
+        ckTermination.checked = terminated
+    }
+
+    function getTermination() {
+        return ckTermination.checked
     }
     
     // Functions to manage connections list

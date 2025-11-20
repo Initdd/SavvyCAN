@@ -105,6 +105,7 @@ protected:
     int can0Baud, can1Baud, swcanBaud, lin1Baud, lin2Baud;
     bool can0Enabled, can1Enabled, swcanEnabled, lin1Enabled, lin2Enabled;
     bool can0ListenOnly, can1ListenOnly, swcanListenOnly;
+    bool can0Terminated, can1Terminated;
     int deviceBuildNum;
     int deviceSingleWireMode;
     uint32_t buildTimeBasis;

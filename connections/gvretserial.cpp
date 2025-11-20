@@ -32,6 +32,9 @@ GVRetSerial::GVRetSerial(QString portName, bool useTcp) :
     lastSystemTimeBasis = 0;
     timeAtGVRETSync = 0;
 
+    can0Terminated = false;
+    can1Terminated = false;
+
     readSettings();
 }
 
@@ -144,6 +147,13 @@ void GVRetSerial::piSetBusSettings(int pBusIdx, CANBus bus)
             can0ListenOnly = true;
         }
         else can0ListenOnly = false;
+
+        if (bus.isTerminated())
+        {
+            can0Baud |= 0x10000000;
+            can0Terminated = true;
+        }
+        else can0Terminated = false;
     }
     else if (pBusIdx == 1)
     {
@@ -162,6 +172,12 @@ void GVRetSerial::piSetBusSettings(int pBusIdx, CANBus bus)
             can1ListenOnly = true;
         }
         else can1ListenOnly = false;
+
+        if (bus.isTerminated()) {
+            can1Baud |= 0x10000000;
+            can1Terminated = true;
+        }
+        else can1Terminated = false;
 
         if (bus.isSingleWire())
         {
@@ -896,7 +912,8 @@ void GVRetSerial::procRXChar(unsigned char c)
         {
         case 0:
             can0Enabled = (c & 0xF);
-            can0ListenOnly = (c >> 4);
+            can0ListenOnly = ((c >> 4) & 0x1);
+            can0Terminated = ((c >> 5) & 0x1);
             break;
         case 1:
             can0Baud = c;
@@ -912,7 +929,8 @@ void GVRetSerial::procRXChar(unsigned char c)
             break;
         case 5:
             can1Enabled = (c & 0xF);
-            can1ListenOnly = (c >> 4);
+            can1ListenOnly = ((c >> 4) & 0x1);
+            can1Terminated = ((c >> 5) & 0x1);
             deviceSingleWireMode = (c >> 6);
             break;
         case 6:
@@ -931,21 +949,27 @@ void GVRetSerial::procRXChar(unsigned char c)
             qDebug() << "Baud 1 = " << can1Baud;
             mBusData[0].mBus.setSpeed(can0Baud);
             mBusData[0].mBus.setActive(can0Enabled);
+            if (can0Terminated) mBusData[0].mBus.setTerminated(true);
+            else mBusData[0].mBus.setTerminated(false);
             mBusData[0].mConfigured = true;
             if (mBusData.count() > 1)
             {
                 mBusData[1].mBus.setSpeed(can1Baud);
                 mBusData[1].mBus.setActive(can1Enabled);
+                if (can1Terminated) mBusData[1].mBus.setTerminated(true);
+                else mBusData[1].mBus.setTerminated(false);
                 mBusData[1].mConfigured = true;
             }
 
             can0Baud |= 0x80000000;
             if (can0Enabled) can0Baud |= 0x40000000;
             if (can0ListenOnly) can0Baud |= 0x20000000;
+            if (can0Terminated) can0Baud |= 0x10000000;
 
             can1Baud |= 0x80000000;
             if (can1Enabled) can1Baud |= 0x40000000;
             if (can1ListenOnly) can1Baud |= 0x20000000;
+            if (can1Terminated) can1Baud |= 0x10000000;
             if (deviceSingleWireMode > 0) can1Baud |= 0x10000000;
 
             setStatus(CANCon::CONNECTED);

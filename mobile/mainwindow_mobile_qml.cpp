@@ -558,19 +558,21 @@ void MainWindowMobileQML::handleSaveBus()
     }
     
     // Get values from QML
-    QVariant busSpeed, listenOnly, enableBus;
+    QVariant busSpeed, listenOnly, enableBus, termination;
     
     QMetaObject::invokeMethod(m_connectionsView, "getBusSpeed", Q_RETURN_ARG(QVariant, busSpeed));
     QMetaObject::invokeMethod(m_connectionsView, "getListenOnly", Q_RETURN_ARG(QVariant, listenOnly));
     QMetaObject::invokeMethod(m_connectionsView, "getEnableBus", Q_RETURN_ARG(QVariant, enableBus));
+    QMetaObject::invokeMethod(m_connectionsView, "getTermination", Q_RETURN_ARG(QVariant, termination));
     
-    qDebug() << "Bus settings - Speed:" << busSpeed << "ListenOnly:" << listenOnly << "Enable:" << enableBus;
+    qDebug() << "Bus settings - Speed:" << busSpeed << "ListenOnly:" << listenOnly << "Enable:" << enableBus << "Termination:" << termination;
     
     // Apply settings to connection
     CANBus busSettings;
     busSettings.setSpeed(busSpeed.toInt());
     busSettings.setListenOnly(listenOnly.toBool());
     busSettings.setActive(enableBus.toBool());
+    busSettings.setTerminated(termination.toBool());
     
     // Most connections support at least bus 0
     conn->setBusSettings(0, busSettings);
@@ -610,10 +612,12 @@ void MainWindowMobileQML::handleConnectionSelection(int row)
             QMetaObject::invokeMethod(m_connectionsView, "setBusSpeed", Q_ARG(QVariant, busSettings.getSpeed()));
             QMetaObject::invokeMethod(m_connectionsView, "setListenOnly", Q_ARG(QVariant, busSettings.isListenOnly()));
             QMetaObject::invokeMethod(m_connectionsView, "setEnableBus", Q_ARG(QVariant, busSettings.isActive()));
+            QMetaObject::invokeMethod(m_connectionsView, "setTermination", Q_ARG(QVariant, busSettings.isTerminated()));
             
             qDebug() << "Loaded bus settings - Speed:" << busSettings.getSpeed() 
                      << "ListenOnly:" << busSettings.isListenOnly() 
-                     << "Active:" << busSettings.isActive();
+                     << "Active:" << busSettings.isActive()
+                     << "Terminated:" << busSettings.isTerminated();
         } else {
             qDebug() << "Failed to get bus settings for connection";
         }

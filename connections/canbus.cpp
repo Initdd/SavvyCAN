@@ -32,6 +32,11 @@ void CANBus::setListenOnly(bool mode){
     listenOnly = mode;
 }
 
+void CANBus::setTerminated(bool mode){
+    //qDebug() << "CANBUS SetTerminated = " << mode;
+    terminated = mode;
+}
+
 void CANBus::setSingleWire(bool mode){
     //qDebug() << "CANBUS SetSingleWire = " << mode;
     singleWire = mode;
@@ -62,6 +67,10 @@ void CANBus::setDataRate(int newSpeed){
 
 bool CANBus::isListenOnly() const {
     return listenOnly;
+}
+
+bool CANBus::isTerminated() const {
+    return terminated;
 }
 
 bool CANBus::isSingleWire() const {
