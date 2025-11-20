@@ -6,6 +6,7 @@
 
 GraphController::GraphController(QObject *parent)
     : QObject(parent)
+    , m_signal(nullptr)
     , m_nextColorIndex(0)
     , m_baseTimestamp(0)
     , m_hasBaseTimestamp(false)
@@ -15,6 +16,7 @@ GraphController::GraphController(QObject *parent)
 
 GraphController::~GraphController()
 {
+    if (m_signal) delete m_signal;
 }
 
 void GraphController::initColorPalette()
@@ -47,174 +49,133 @@ void GraphController::addFrameSignal(uint32_t frameId, int bus)
     // This is useful for quick visualization
     QString name = QString("0x%1 (Bus %2)").arg(frameId, 0, 16).arg(bus);
     
-    GraphSignal signal;
-    signal.frameId = frameId;
-    signal.bus = bus;
-    signal.startBit = 0;
-    signal.numBits = 64; // Max CAN frame data
-    signal.isSigned = false;
-    signal.isLittleEndian = true;
-    signal.name = name;
-    signal.color = getNextColor();
-    signal.minValue = 0;
-    signal.maxValue = 255;
+    // Overwrite the current signal
+    if (m_signal) delete m_signal;
+    m_signal = new GraphSignal();
+    m_signal->frameId = frameId;
+    m_signal->bus = bus;
+    m_signal->startBit = 0;
+    m_signal->numBits = 64;
+    m_signal->isSigned = false;
+    m_signal->isLittleEndian = true;
+    m_signal->name = name;
+    m_signal->color = getNextColor();
+    m_signal->minValue = 0;
+    m_signal->maxValue = 255;
     
-    m_signals.append(signal);
-    
-    qDebug() << "GraphController::addFrameSignal - Added:" << name;
-    qDebug() << "  Total signals now:" << m_signals.count();
-    qDebug() << "  Emitting signalCountChanged...";
-    
-    emit signalCountChanged();
-    
-    qDebug() << "  Emitting signalAdded(" << (m_signals.count() - 1) << ")...";
-    emit signalAdded(m_signals.count() - 1);
-    
-    qDebug() << "  Done adding signal";
+    emit signalChanged();
 }
 
 void GraphController::addSignal(uint32_t frameId, int bus, int startBit, int numBits,
                                 bool isSigned, bool isLittleEndian, const QString &name)
 {
-    GraphSignal signal;
-    signal.frameId = frameId;
-    signal.bus = bus;
-    signal.startBit = startBit;
-    signal.numBits = numBits;
-    signal.isSigned = isSigned;
-    signal.isLittleEndian = isLittleEndian;
-    signal.name = name;
-    signal.color = getNextColor();
+    if (m_signal) delete m_signal;
+    m_signal = new GraphSignal();
+    m_signal->frameId = frameId;
+    m_signal->bus = bus;
+    m_signal->startBit = startBit;
+    m_signal->numBits = numBits;
+    m_signal->isSigned = isSigned;
+    m_signal->isLittleEndian = isLittleEndian;
+    m_signal->name = name;
+    m_signal->color = getNextColor();
     
     // Calculate min/max based on bit width and signedness
     if (isSigned) {
-        signal.minValue = -(1 << (numBits - 1));
-        signal.maxValue = (1 << (numBits - 1)) - 1;
+        m_signal->minValue = -(1 << (numBits - 1));
+        m_signal->maxValue = (1 << (numBits - 1)) - 1;
     } else {
-        signal.minValue = 0;
-        signal.maxValue = (1 << numBits) - 1;
+        m_signal->minValue = 0;
+        m_signal->maxValue = (1 << numBits) - 1;
     }
     
-    m_signals.append(signal);
-    
-    qDebug() << "Added signal:" << name << "ID:" << QString::number(frameId, 16)
-             << "Bits:" << startBit << "-" << (startBit + numBits - 1);
-    
-    emit signalCountChanged();
-    emit signalAdded(m_signals.count() - 1);
+    emit signalChanged();
 }
 
-void GraphController::removeSignal(int index)
+void GraphController::removeSignal()
 {
-    if (index >= 0 && index < m_signals.count()) {
-        qDebug() << "Removing signal:" << m_signals[index].name;
-        m_signals.removeAt(index);
-        emit signalCountChanged();
-        emit signalRemoved(index);
-        emit rangesChanged();
+    if (m_signal) {
+        delete m_signal;
+        m_signal = nullptr;
     }
+    emit signalChanged();
 }
 
 void GraphController::clearAllSignals()
 {
-    qDebug() << "Clearing all signals";
-    m_signals.clear();
-    m_hasBaseTimestamp = false;
-    m_nextColorIndex = 0;
-    emit signalCountChanged();
-    emit dataUpdated();
+    removeSignal();
 }
 
-QString GraphController::getSignalName(int index) const
+QString GraphController::getSignalName() const
 {
-    if (index >= 0 && index < m_signals.count()) {
-        return m_signals[index].name;
+    if (m_signal) {
+        return m_signal->name;
     }
     return QString();
 }
 
-QColor GraphController::getSignalColor(int index) const
+QColor GraphController::getSignalColor() const
 {
-    if (index >= 0 && index < m_signals.count()) {
-        return m_signals[index].color;
+    if (m_signal) {
+        return m_signal->color;
     }
-    return QColor(Qt::gray);
+    return QColor();
 }
 
-QVector<QPointF> GraphController::getSignalData(int index) const
+QVector<QPointF> GraphController::getSignalData() const
 {
-    if (index >= 0 && index < m_signals.count()) {
-        return m_signals[index].dataPoints;
+    if (m_signal) {
+        return m_signal->dataPoints;
     }
     return QVector<QPointF>();
 }
 
-QVariantList GraphController::getSignalDataVariant(int index) const
+QVariantList GraphController::getSignalDataVariant() const
 {
     QVariantList result;
     
-    if (index >= 0 && index < m_signals.count()) {
-        const QVector<QPointF> &points = m_signals[index].dataPoints;
-        for (const QPointF &point : points) {
-            QVariantMap pointMap;
-            pointMap["x"] = point.x();
-            pointMap["y"] = point.y();
-            result.append(pointMap);
+    if (m_signal) {
+        for (const QPointF &point : m_signal->dataPoints) {
+            QVariantMap map;
+            map["x"] = point.x();
+            map["y"] = point.y();
+            result.append(map);
         }
     }
-    
     return result;
 }
 
 void GraphController::getValueRange(double &minVal, double &maxVal) const
 {
-    if (m_signals.isEmpty()) {
-        minVal = 0;
-        maxVal = 255;
-        return;
+    minVal = 0;
+    maxVal = 255;
+
+    if (m_signal) {
+        minVal = m_signal->minValue;
+        maxVal = m_signal->maxValue;
     }
-    
-    minVal = m_signals[0].minValue;
-    maxVal = m_signals[0].maxValue;
-    
-    for (const GraphSignal &signal : m_signals) {
-        minVal = qMin(minVal, signal.minValue);
-        maxVal = qMax(maxVal, signal.maxValue);
-    }
-    
+
     // Add 10% padding
-    double range = maxVal - minVal;
-    minVal -= range * 0.1;
-    maxVal += range * 0.1;
+    double padding = (maxVal - minVal) * 0.1;
+    minVal -= padding;
+    maxVal += padding;
 }
 
 void GraphController::getTimeRange(double &minTime, double &maxTime) const
 {
     minTime = 0;
     maxTime = 10; // Default 10 second window
-    
-    if (m_signals.isEmpty()) {
-        return;
+
+    if (m_signal && !m_signal->dataPoints.isEmpty()) {
+        minTime = m_signal->dataPoints.first().x();
+        maxTime = m_signal->dataPoints.last().x();
     }
-    
-    // Find the actual time range from data
-    bool first = true;
-    for (const GraphSignal &signal : m_signals) {
-        if (!signal.dataPoints.isEmpty()) {
-            double sigMin = signal.dataPoints.first().x();
-            double sigMax = signal.dataPoints.last().x();
-            
-            if (first) {
-                minTime = sigMin;
-                maxTime = sigMax;
-                first = false;
-            } else {
-                minTime = qMin(minTime, sigMin);
-                maxTime = qMax(maxTime, sigMax);
-            }
-        }
-    }
-    
+
+    // Add 10% padding
+    double padding = (maxTime - minTime) * 0.1;
+    minTime -= padding;
+    maxTime += padding;
+
     // Ensure at least 1 second range
     if (maxTime - minTime < 1.0) {
         maxTime = minTime + 10.0;
@@ -325,28 +286,26 @@ void GraphController::processFrame(const CANFrame &frame)
     
     double relativeTime = (frame.timeStamp().microSeconds() / 1000000.0) - m_baseTimestamp;
     
-    // Update all signals that match this frame
-    for (int i = 0; i < m_signals.count(); i++) {
-        GraphSignal &signal = m_signals[i];
-        
+    // Update signal if it matches this frame
+    if (m_signal) {
         // Check if this frame matches this signal
-        if (signal.frameId == frame.frameId() && 
-            (signal.bus == -1 || signal.bus == frame.bus)) {
+        if (m_signal->frameId == frame.frameId() && 
+            (m_signal->bus == -1 || m_signal->bus == frame.bus)) {
             
             // Extract value from frame
-            double value = extractValue(frame, signal);
+            double value = extractValue(frame, *m_signal);
             
             // Add data point
-            signal.dataPoints.append(QPointF(relativeTime, value));
+            m_signal->dataPoints.append(QPointF(relativeTime, value));
             
-                // Limit data points to prevent memory issues (keep last GRAPH_SIGNAL_MAX_POINTS points)
-                if (signal.dataPoints.size() > GRAPH_SIGNAL_MAX_POINTS) {
-                    signal.dataPoints.remove(0, signal.dataPoints.size() - GRAPH_SIGNAL_MAX_POINTS);
+            // Limit data points to prevent memory issues (keep last GRAPH_SIGNAL_MAX_POINTS points)
+            if (m_signal->dataPoints.size() > GRAPH_SIGNAL_MAX_POINTS) {
+                m_signal->dataPoints.remove(0, m_signal->dataPoints.size() - GRAPH_SIGNAL_MAX_POINTS);
             }
             
             // Update min/max if needed
-            if (value < signal.minValue) signal.minValue = value;
-            if (value > signal.maxValue) signal.maxValue = value;
+            if (value < m_signal->minValue) m_signal->minValue = value;
+            if (value > m_signal->maxValue) m_signal->maxValue = value;
             
             updated = true;
         }

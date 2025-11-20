@@ -30,7 +30,6 @@ struct GraphSignal {
 class GraphController : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(int signalCount READ signalCount NOTIFY signalCountChanged)
     
 public:
     explicit GraphController(QObject *parent = nullptr);
@@ -38,28 +37,27 @@ public:
     
     // Add a signal to graph (simple version - whole frame as single value)
     Q_INVOKABLE void addFrameSignal(uint32_t frameId, int bus);
-    
     // Add a specific bit range from a frame
     Q_INVOKABLE void addSignal(uint32_t frameId, int bus, int startBit, int numBits, 
                                bool isSigned, bool isLittleEndian, const QString &name);
     
-    // Remove a signal by index
-    Q_INVOKABLE void removeSignal(int index);
+    // Remove the signal
+    Q_INVOKABLE void removeSignal();
     
     // Clear all signals
     Q_INVOKABLE void clearAllSignals();
     
     // Get signal info for QML
-    Q_INVOKABLE QString getSignalName(int index) const;
-    Q_INVOKABLE QColor getSignalColor(int index) const;
-    Q_INVOKABLE int signalCount() const { return m_signals.count(); }
+    Q_INVOKABLE QString getSignalName() const;
+    Q_INVOKABLE QColor getSignalColor() const;
+    Q_INVOKABLE bool signalDefined() const { return m_signal != nullptr; }
     
     // Process incoming CAN frame and update graphs
     void processFrame(const CANFrame &frame);
     
     // Get data for a specific signal (for QtCharts)
-    QVector<QPointF> getSignalData(int index) const;
-    Q_INVOKABLE QVariantList getSignalDataVariant(int index) const;
+    QVector<QPointF> getSignalData() const;
+    Q_INVOKABLE QVariantList getSignalDataVariant() const;
     
     // Get min/max for auto-ranging
     void getValueRange(double &minVal, double &maxVal) const;
@@ -68,14 +66,12 @@ public:
     Q_INVOKABLE QVariantMap getTimeRangeMap() const;
 
 signals:
-    void signalCountChanged();
-    void signalAdded(int index);
-    void signalRemoved(int index);
+    void signalChanged();
     void dataUpdated();
     void rangesChanged();
     
 private:
-    QList<GraphSignal> m_signals;
+    GraphSignal* m_signal;
     QVector<QColor> m_colorPalette;
     int m_nextColorIndex;
     double m_baseTimestamp;

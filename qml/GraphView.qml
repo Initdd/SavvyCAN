@@ -15,94 +15,80 @@ Page {
     }
     
     // Track if we have any signals to graph
-    property bool hasSignals: graphController ? graphController.signalCount > 0 : false
+    property bool hasSignals: graphController ? graphController.signalDefined() : false
     
-    // Keep references to created series
-    property var seriesMap: ({})
+    // Keep reference to the single series
+    property var currentSeries: null
     
     Component.onCompleted: {
         console.log("GraphView Component.onCompleted")
         if (graphController) {
-            console.log("  GraphController available, signalCount:", graphController.signalCount)
+            console.log("  GraphController available")
             // Connect to graph controller signals
-            console.log("  Connecting to graphController.signalAdded...")
-            graphController.signalAdded.connect(onSignalAdded)
-            console.log("  Connecting to graphController.signalRemoved...")
-            graphController.signalRemoved.connect(onSignalRemoved)
+            console.log("  Connecting to graphController.signalChanged...")
+            graphController.signalChanged.connect(onSignalChanged)
             console.log("  Connecting to graphController.dataUpdated...")
             graphController.dataUpdated.connect(onDataUpdated)
             console.log("  Connecting to graphController.rangesChanged...")
             graphController.rangesChanged.connect(onRangesChanged)
-            console.log("  Connecting to graphController.signalCountChanged...")
-            graphController.signalCountChanged.connect(onSignalCountChanged)
             console.log("  All connections established")
+            
+            // Initial check
+            onSignalChanged()
         } else {
             console.log("  ERROR: GraphController NOT available!")
         }
     }
     
-    // Handle new signal added
-    function onSignalAdded(index) {
-        console.log("=== onSignalAdded called with index:", index, "===")
-        var name = graphController.getSignalName(index)
-        var color = graphController.getSignalColor(index)
-        console.log("  Signal name:", name)
-        console.log("  Signal color:", color)
+    // Handle signal changed (added/removed/updated)
+    function onSignalChanged() {
+        console.log("=== onSignalChanged called ===")
         
-        console.log("  Creating LineSeries...")
-        // Create a new series for this signal
-        var series = chartView.createSeries(ChartView.SeriesTypeLine, name, xAxis, yAxis)
-        series.color = color
-        series.width = 2
-        series.useOpenGL = true // Enable OpenGL for better performance
-        console.log("  Series created")
+        // Clear existing series
+        chartView.removeAllSeries()
+        currentSeries = null
         
-        // Store reference
-        seriesMap[index] = series
-        console.log("  Stored in map. Series count:", Object.keys(seriesMap).length)
-        
-        // Update ranges
-        console.log("  Updating ranges...")
-        updateRanges()
-        console.log("=== onSignalAdded complete ===")
-    }
-    
-    // Handle signal removed
-    function onSignalRemoved(index) {
-    if (debugLogging) console.log("Signal removed at index:", index)
-        
-        if (seriesMap[index]) {
-            chartView.removeSeries(seriesMap[index])
-            delete seriesMap[index]
+        if (graphController.signalDefined()) {
+            var name = graphController.getSignalName()
+            var color = graphController.getSignalColor()
+            console.log("  Signal name:", name)
+            console.log("  Signal color:", color)
+            
+            console.log("  Creating LineSeries...")
+            // Create a new series for this signal
+            var series = chartView.createSeries(ChartView.SeriesTypeLine, name, xAxis, yAxis)
+            series.color = color
+            series.width = 2
+            series.useOpenGL = true // Enable OpenGL for better performance
+            
+            // Store reference
+            currentSeries = series
+            chartView.visible = true
+            
+            // Update ranges
+            updateRanges()
+            
+            // Load initial data if any
+            onDataUpdated()
+        } else {
+            console.log("  No signal defined")
+            chartView.visible = false
         }
-        
-        // Rebuild map with updated indices
-        var newMap = {}
-        for (var i = 0; i < graphController.signalCount; i++) {
-            if (seriesMap[i]) {
-                newMap[i] = seriesMap[i]
-            }
-        }
-        seriesMap = newMap
-        
-        updateRanges()
     }
     
     // Handle data updated
     function onDataUpdated() {
-        // Update all series with new data
-        for (var index in seriesMap) {
-            var series = seriesMap[index]
-            var data = graphController.getSignalDataVariant(parseInt(index))
+        if (!currentSeries) return
+        
+        var data = graphController.getSignalDataVariant()
+        
+        if (data && data.length > 0) {
+            // Clear old data
+            currentSeries.removePoints(0, currentSeries.count)
             
-            if (data && data.length > 0) {
-                // Clear old data
-                series.removePoints(0, series.count)
-                
-                // Add new data points
-                for (var i = 0; i < data.length; i++) {
-                    series.append(data[i].x, data[i].y)
-                }
+            // Add new data points
+            for (var i = 0; i < data.length; i++) {
+                currentSeries.append(data[i].x, data[i].y)
             }
         }
     }
@@ -112,21 +98,9 @@ Page {
         updateRanges()
     }
     
-    // Handle signal count changed (detects when all signals are cleared)
-    function onSignalCountChanged() {
-        if (debugLogging) console.log("Signal count changed to:", graphController.signalCount)
-        
-        // If count is 0, clear all series from the chart
-        if (graphController.signalCount === 0) {
-            if (debugLogging) console.log("  Clearing all series from chart")
-            chartView.removeAllSeries()
-            seriesMap = {}
-        }
-    }
-    
     // Update axis ranges
     function updateRanges() {
-        if (!graphController || graphController.signalCount === 0) {
+        if (!graphController || !graphController.signalDefined()) {
             return
         }
         
@@ -141,19 +115,15 @@ Page {
         yAxis.max = valueRange.max
     }
     
-    function removeSignal(index) {
+    function removeSignal() {
         if (graphController) {
-            graphController.removeSignal(index)
+            graphController.removeSignal()
         }
     }
     
     function clearAllSignals() {
         if (graphController) {
             graphController.clearAllSignals()
-            
-            // Clear all series
-            chartView.removeAllSeries()
-            seriesMap = {}
         }
     }
     
@@ -239,7 +209,6 @@ Page {
             ChartView {
                 id: chartView
                 anchors.fill: parent
-                anchors.margins: 5
                 antialiasing: true
                 backgroundColor: ThemeManager.secondaryBackgroundColor
                 legend.visible: true
@@ -381,7 +350,7 @@ Page {
             // Empty state message
             Label {
                 anchors.centerIn: parent
-                text: qsTr("No signals added yet.\n\nLong-press a frame in the Frames tab\nto add it to the graph.")
+                text: qsTr("No signals added yet.\n\nClick the '+' button to add signals to the graph.")
                 font.pixelSize: 14
                 color: ThemeManager.secondaryTextColor
                 horizontalAlignment: Text.AlignHCenter
@@ -418,13 +387,13 @@ Page {
                     
                     ListView {
                         id: signalListView
-                        model: graphController ? graphController.signalCount : 0
+                        model: graphController && graphController.signalDefined() ? 1 : 0
                         spacing: 2
                         
                         delegate: Rectangle {
                             width: signalListView.width
                             height: 30
-                            color: index % 2 ? ThemeManager.frameEvenRow : ThemeManager.frameOddRow
+                            color: ThemeManager.frameOddRow
                             radius: 2
                             
                             RowLayout {
@@ -436,12 +405,12 @@ Page {
                                     width: 16
                                     height: 16
                                     radius: 2
-                                    color: graphController ? graphController.getSignalColor(index) : "gray"
+                                    color: graphController ? graphController.getSignalColor() : "gray"
                                 }
                                 
                                 Label {
                                     Layout.fillWidth: true
-                                    text: graphController ? graphController.getSignalName(index) : ""
+                                    text: graphController ? graphController.getSignalName() : ""
                                     font.pixelSize: 11
                                     color: ThemeManager.textColor
                                     elide: Text.ElideRight
@@ -451,7 +420,7 @@ Page {
                                     text: "×"
                                     width: 24
                                     height: 24
-                                    onClicked: removeSignal(index)
+                                    onClicked: removeSignal()
                                     
                                     background: Rectangle {
                                         color: parent.pressed ? ThemeManager.buttonPressedColor : 
@@ -478,7 +447,7 @@ Page {
         Label {
             Layout.fillWidth: true
             text: hasSignals ? 
-                  qsTr("Signals: %1 | Time range: %2s").arg(graphController ? graphController.signalCount : 0).arg(xAxis.max.toFixed(2)) :
+                  qsTr("Signal: %1 | Time range: %2s").arg(graphController ? graphController.getSignalName() : "").arg(xAxis.max.toFixed(2)) :
                   qsTr("No active signals")
             font.pixelSize: 11
             color: ThemeManager.secondaryTextColor

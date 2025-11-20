@@ -9,10 +9,6 @@ ApplicationWindow {
     height: 640
     title: "SavvyCAN Mobile"
 
-    // Note: frameModel, canManager, and graphController are available
-    // as context properties set from C++ - no need to declare them here
-
-    // Graph visibility state
     property bool graphVisible: false
 
     // Apply theme colors
@@ -21,14 +17,13 @@ ApplicationWindow {
     header: TabBar {
         id: tabBar
         currentIndex: swipeView.currentIndex
-        // Add top padding for notch/status bar
         topPadding: safeAreaTop
         background: Rectangle {
             color: ThemeManager.tabBarBackground
         }
         
         TabButton {
-            text: qsTr("Frames")
+            text: qsTr("Connections")
             font.pixelSize: 16
             contentItem: Text {
                 text: parent.text
@@ -39,7 +34,7 @@ ApplicationWindow {
             }
         }
         TabButton {
-            text: qsTr("Connections")
+            text: qsTr("Frames")
             font.pixelSize: 16
             contentItem: Text {
                 text: parent.text
@@ -75,9 +70,7 @@ ApplicationWindow {
     
     // Safe area insets for notch/status bar
     readonly property real safeAreaTop: {
-        // Qt provides screen information
         if (Qt.platform.os === "android" || Qt.platform.os === "ios") {
-            // Typical status bar height in pixels
             return 24
         }
         return 0
@@ -88,16 +81,16 @@ ApplicationWindow {
         anchors.fill: parent
         currentIndex: tabBar.currentIndex
         
+        ConnectionsView {
+            id: connectionsView
+            objectName: "connectionsView"
+        }
+    
         FramesView {
             id: framesView
             objectName: "framesView"
             // Disable noisy QML logs by default
             debugLogging: false
-        }
-        
-        ConnectionsView {
-            id: connectionsView
-            objectName: "connectionsView"
         }
         
         SenderView {
@@ -168,7 +161,7 @@ ApplicationWindow {
             z: -1
         }
         
-        // Icon - use SVG images from Qt resource (qrc) at qrc:/images/open_graph.svg & qrc:/images/exit_graph.svg
+        // Icon
         Image {
             anchors.centerIn: parent
             source: graphVisible ? "qrc:/icons/images/exit_graph.svg" : "qrc:/icons/images/open_graph.svg"
@@ -204,7 +197,7 @@ ApplicationWindow {
         
         // Pulse animation when graph has signals
         SequentialAnimation on opacity {
-            running: graphController && graphController.signalCount > 0 && !graphVisible
+            running: graphController && graphController.signalDefined() && !graphVisible
             loops: Animation.Infinite
             NumberAnimation { to: 0.6; duration: 1000 }
             NumberAnimation { to: 1.0; duration: 1000 }
