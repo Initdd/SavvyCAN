@@ -1054,8 +1054,6 @@ void MainWindowMobileQML::framesReceived(CANConnection* conn, QVector<CANFrame>&
                 
                 if (success) {
                     successCount++;
-                } else {
-                    // Silenced: failed to invoke addCANFrame; avoid noisy logs in production
                 }
             }
         } else {
@@ -1397,7 +1395,7 @@ void MainWindowMobileQML::handleAddFrameToGraph(uint32_t frameId, int bus)
     
     // Clear existing graph (single graph mode - replace on each add)
     qDebug() << "  Clearing existing signals...";
-    graphController->clearAllSignals();
+    graphController->removeSignal();
     
     // Check if DBC is available for this frame
     DBCHandler* dbcHandler = DBCHandler::getReference();
@@ -1428,6 +1426,8 @@ void MainWindowMobileQML::handleAddFrameToGraph(uint32_t frameId, int bus)
                     signalInfo["signalSize"] = sig->signalSize;
                     signalInfo["isLittleEndian"] = sig->intelByteOrder;
                     signalInfo["isSigned"] = sig->valType == DBC_SIG_VAL_TYPE::SIGNED_INT;
+                    signalInfo["min"] = sig->min;
+                    signalInfo["max"] = sig->max;
                     signalList.append(signalInfo);
                 }
             }
@@ -1462,7 +1462,7 @@ void MainWindowMobileQML::handleAddSignalToGraph(uint32_t frameId, int bus, cons
     
     // Clear existing graph (single graph mode - replace on each add)
     qDebug() << "  Clearing existing signals...";
-    graphController->clearAllSignals();
+    graphController->removeSignal();
     
     // Check if DBC is available for this frame
     DBCHandler* dbcHandler = DBCHandler::getReference();
@@ -1501,7 +1501,9 @@ void MainWindowMobileQML::handleAddSignalToGraph(uint32_t frameId, int bus, cons
                 targetSignal->signalSize,
                 targetSignal->valType == DBC_SIG_VAL_TYPE::SIGNED_INT,
                 targetSignal->intelByteOrder,
-                targetSignal->name
+                targetSignal->name,
+                targetSignal->min,
+                targetSignal->max
             );
             
             qDebug() << "  Signal added to graph successfully";

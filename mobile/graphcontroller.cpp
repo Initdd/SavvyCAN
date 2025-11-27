@@ -10,8 +10,13 @@ GraphController::GraphController(QObject *parent)
     , m_nextColorIndex(0)
     , m_baseTimestamp(0)
     , m_hasBaseTimestamp(false)
+    , m_newDataAvailable(false)
 {
     initColorPalette();
+    
+    // Setup timer based on target FPS
+    connect(&m_updateTimer, &QTimer::timeout, this, &GraphController::onTimerTimeout);
+    m_updateTimer.start(1000 / TARGET_FPS);
 }
 
 GraphController::~GraphController()
@@ -67,7 +72,8 @@ void GraphController::addFrameSignal(uint32_t frameId, int bus)
 }
 
 void GraphController::addSignal(uint32_t frameId, int bus, int startBit, int numBits,
-                                bool isSigned, bool isLittleEndian, const QString &name)
+                                bool isSigned, bool isLittleEndian, const QString &name,
+                                double min, double max)
 {
     if (m_signal) delete m_signal;
     m_signal = new GraphSignal();
@@ -80,13 +86,19 @@ void GraphController::addSignal(uint32_t frameId, int bus, int startBit, int num
     m_signal->name = name;
     m_signal->color = getNextColor();
     
-    // Calculate min/max based on bit width and signedness
-    if (isSigned) {
-        m_signal->minValue = -(1 << (numBits - 1));
-        m_signal->maxValue = (1 << (numBits - 1)) - 1;
+    // Use provided min/max if they look valid (not equal)
+    if (qAbs(max - min) > 0.000001) {
+        m_signal->minValue = min;
+        m_signal->maxValue = max;
     } else {
-        m_signal->minValue = 0;
-        m_signal->maxValue = (1 << numBits) - 1;
+        // Calculate min/max based on bit width and signedness
+        if (isSigned) {
+            m_signal->minValue = -(1 << (numBits - 1));
+            m_signal->maxValue = (1 << (numBits - 1)) - 1;
+        } else {
+            m_signal->minValue = 0;
+            m_signal->maxValue = (1 << numBits) - 1;
+        }
     }
     
     emit signalChanged();
@@ -97,13 +109,8 @@ void GraphController::removeSignal()
     if (m_signal) {
         delete m_signal;
         m_signal = nullptr;
+        emit signalChanged();
     }
-    emit signalChanged();
-}
-
-void GraphController::clearAllSignals()
-{
-    removeSignal();
 }
 
 QString GraphController::getSignalName() const
@@ -130,19 +137,17 @@ QVector<QPointF> GraphController::getSignalData() const
     return QVector<QPointF>();
 }
 
-QVariantList GraphController::getSignalDataVariant() const
+void GraphController::updateSeries(QAbstractSeries *series)
 {
-    QVariantList result;
-    
-    if (m_signal) {
-        for (const QPointF &point : m_signal->dataPoints) {
-            QVariantMap map;
-            map["x"] = point.x();
-            map["y"] = point.y();
-            result.append(map);
-        }
+    if (!series || !m_signal) return;
+
+    // Cast to XYSeries
+    QXYSeries *xySeries = qobject_cast<QXYSeries *>(series);
+
+    if (xySeries) {
+        // Replace the internal data of the series directly with the QVector.
+        xySeries->replace(m_signal->dataPoints);
     }
-    return result;
 }
 
 void GraphController::getValueRange(double &minVal, double &maxVal) const
@@ -154,11 +159,6 @@ void GraphController::getValueRange(double &minVal, double &maxVal) const
         minVal = m_signal->minValue;
         maxVal = m_signal->maxValue;
     }
-
-    // Add 10% padding
-    double padding = (maxVal - minVal) * 0.1;
-    minVal -= padding;
-    maxVal += padding;
 }
 
 void GraphController::getTimeRange(double &minTime, double &maxTime) const
@@ -171,13 +171,8 @@ void GraphController::getTimeRange(double &minTime, double &maxTime) const
         maxTime = m_signal->dataPoints.last().x();
     }
 
-    // Add 10% padding
-    double padding = (maxTime - minTime) * 0.1;
-    minTime -= padding;
-    maxTime += padding;
-
-    // Ensure at least 1 second range
-    if (maxTime - minTime < 1.0) {
+    // Ensure at least small range if min == max
+    if (qAbs(maxTime - minTime) < 0.001) {
         maxTime = minTime + 10.0;
     }
 }
@@ -299,8 +294,9 @@ void GraphController::processFrame(const CANFrame &frame)
             m_signal->dataPoints.append(QPointF(relativeTime, value));
             
             // Limit data points to prevent memory issues (keep last GRAPH_SIGNAL_MAX_POINTS points)
-            if (m_signal->dataPoints.size() > GRAPH_SIGNAL_MAX_POINTS) {
-                m_signal->dataPoints.remove(0, m_signal->dataPoints.size() - GRAPH_SIGNAL_MAX_POINTS);
+            // Optimization: Remove in chunks to avoid O(N) shift every frame
+            if (m_signal->dataPoints.size() > GRAPH_SIGNAL_MAX_POINTS + 100) {
+                m_signal->dataPoints.remove(0, 100);
             }
             
             // Update min/max if needed
@@ -312,7 +308,15 @@ void GraphController::processFrame(const CANFrame &frame)
     }
     
     if (updated) {
+        m_newDataAvailable = true;
+    }
+}
+
+void GraphController::onTimerTimeout()
+{
+    if (m_newDataAvailable) {
         emit dataUpdated();
         emit rangesChanged();
+        m_newDataAvailable = false;
     }
 }

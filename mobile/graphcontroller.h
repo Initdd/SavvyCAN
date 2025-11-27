@@ -6,6 +6,8 @@
 #include <QColor>
 #include <QVector>
 #include <QPointF>
+#include <QtCharts>
+#include <QTimer>
 #include "can_structs.h"
 
 // Represents a single signal being graphed
@@ -32,6 +34,8 @@ class GraphController : public QObject
     Q_OBJECT
     
 public:
+    static const int TARGET_FPS = 20;
+
     explicit GraphController(QObject *parent = nullptr);
     ~GraphController();
     
@@ -39,13 +43,11 @@ public:
     Q_INVOKABLE void addFrameSignal(uint32_t frameId, int bus);
     // Add a specific bit range from a frame
     Q_INVOKABLE void addSignal(uint32_t frameId, int bus, int startBit, int numBits, 
-                               bool isSigned, bool isLittleEndian, const QString &name);
+                               bool isSigned, bool isLittleEndian, const QString &name,
+                               double min = 0.0, double max = 0.0);
     
     // Remove the signal
     Q_INVOKABLE void removeSignal();
-    
-    // Clear all signals
-    Q_INVOKABLE void clearAllSignals();
     
     // Get signal info for QML
     Q_INVOKABLE QString getSignalName() const;
@@ -57,7 +59,7 @@ public:
     
     // Get data for a specific signal (for QtCharts)
     QVector<QPointF> getSignalData() const;
-    Q_INVOKABLE QVariantList getSignalDataVariant() const;
+    Q_INVOKABLE void updateSeries(QAbstractSeries *series);
     
     // Get min/max for auto-ranging
     void getValueRange(double &minVal, double &maxVal) const;
@@ -71,12 +73,6 @@ signals:
     void rangesChanged();
     
 private:
-    GraphSignal* m_signal;
-    QVector<QColor> m_colorPalette;
-    int m_nextColorIndex;
-    double m_baseTimestamp;
-    bool m_hasBaseTimestamp;
-    
     // Extract value from CAN frame data
     double extractValue(const CANFrame &frame, const GraphSignal &signal) const;
     
@@ -85,6 +81,19 @@ private:
     
     // Initialize color palette
     void initColorPalette();
+
+private slots:
+    void onTimerTimeout();
+
+private:
+    GraphSignal* m_signal;
+    QVector<QColor> m_colorPalette;
+    int m_nextColorIndex;
+    double m_baseTimestamp;
+    bool m_hasBaseTimestamp;
+    
+    QTimer m_updateTimer;
+    bool m_newDataAvailable;
 };
 
 #endif // GRAPHCONTROLLER_H

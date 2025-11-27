@@ -15,7 +15,7 @@ Page {
     }
     
     // Track if we have any signals to graph
-    property bool hasSignals: graphController ? graphController.signalDefined() : false
+    property bool hasSignals: false
     
     // Keep reference to the single series
     property var currentSeries: null
@@ -43,6 +43,10 @@ Page {
     // Handle signal changed (added/removed/updated)
     function onSignalChanged() {
         console.log("=== onSignalChanged called ===")
+        
+        if (graphController) {
+            hasSignals = graphController.signalDefined()
+        }
         
         // Clear existing series
         chartView.removeAllSeries()
@@ -78,19 +82,7 @@ Page {
     
     // Handle data updated
     function onDataUpdated() {
-        if (!currentSeries) return
-        
-        var data = graphController.getSignalDataVariant()
-        
-        if (data && data.length > 0) {
-            // Clear old data
-            currentSeries.removePoints(0, currentSeries.count)
-            
-            // Add new data points
-            for (var i = 0; i < data.length; i++) {
-                currentSeries.append(data[i].x, data[i].y)
-            }
-        }
+        graphController.updateSeries(chartView.series(0))
     }
     
     // Handle ranges changed
@@ -121,12 +113,6 @@ Page {
         }
     }
     
-    function clearAllSignals() {
-        if (graphController) {
-            graphController.clearAllSignals()
-        }
-    }
-    
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 10
@@ -149,35 +135,11 @@ Page {
             }
             
             Button {
-                text: qsTr("+ Signal")
-                onClicked: addSignalRequested()
-                enabled: false // Will be enabled when we can select from frames
-                ToolTip {
-                    text: qsTr("Long-press a frame in the Frames tab to add it to the graph")
-                }
-                background: Rectangle {
-                    color: parent.enabled ? 
-                           (parent.pressed ? ThemeManager.buttonPressedColor : 
-                           (parent.hovered ? ThemeManager.buttonHoverColor : ThemeManager.accentColor)) :
-                           ThemeManager.buttonDisabledColor
-                    border.color: ThemeManager.borderColor
-                    border.width: 1
-                    radius: 4
-                }
-                contentItem: Text {
-                    text: parent.text
-                    color: parent.enabled ? "white" : ThemeManager.secondaryTextColor
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-            }
-            
-            Button {
                 text: qsTr("Clear")
-                onClicked: clearAllSignals()
+                onClicked: removeSignal()
                 enabled: hasSignals
                 ToolTip {
-                    text: qsTr("Remove all signals from graph")
+                    text: qsTr("Clear the current signal from the graph")
                 }
                 background: Rectangle {
                     color: parent.enabled ? 
@@ -205,14 +167,24 @@ Page {
             border.color: ThemeManager.borderColor
             border.width: 1
             radius: 4
+            clip: true
             
             ChartView {
                 id: chartView
-                anchors.fill: parent
+                anchors.centerIn: parent
+                width: parent.height
+                height: parent.width
+                rotation: -90
                 antialiasing: true
                 backgroundColor: ThemeManager.secondaryBackgroundColor
                 legend.visible: true
                 legend.alignment: Qt.AlignBottom
+                
+                // Remove margins
+                margins.top: 0
+                margins.bottom: 0
+                margins.left: 0
+                margins.right: 0
                 
                 // Customize theme
                 theme: ChartView.ChartThemeDark
@@ -358,91 +330,6 @@ Page {
             }
         }
         
-        // Signal list (shows what's currently graphed)
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 100
-            color: ThemeManager.secondaryBackgroundColor
-            border.color: ThemeManager.borderColor
-            border.width: 1
-            radius: 4
-            visible: hasSignals
-            
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 5
-                spacing: 2
-                
-                Label {
-                    text: qsTr("Active Signals:")
-                    font.pixelSize: 12
-                    font.bold: true
-                    color: ThemeManager.textColor
-                }
-                
-                ScrollView {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    clip: true
-                    
-                    ListView {
-                        id: signalListView
-                        model: graphController && graphController.signalDefined() ? 1 : 0
-                        spacing: 2
-                        
-                        delegate: Rectangle {
-                            width: signalListView.width
-                            height: 30
-                            color: ThemeManager.frameOddRow
-                            radius: 2
-                            
-                            RowLayout {
-                                anchors.fill: parent
-                                anchors.margins: 5
-                                spacing: 5
-                                
-                                Rectangle {
-                                    width: 16
-                                    height: 16
-                                    radius: 2
-                                    color: graphController ? graphController.getSignalColor() : "gray"
-                                }
-                                
-                                Label {
-                                    Layout.fillWidth: true
-                                    text: graphController ? graphController.getSignalName() : ""
-                                    font.pixelSize: 11
-                                    color: ThemeManager.textColor
-                                    elide: Text.ElideRight
-                                }
-                                
-                                Button {
-                                    text: "×"
-                                    width: 24
-                                    height: 24
-                                    onClicked: removeSignal()
-                                    
-                                    background: Rectangle {
-                                        color: parent.pressed ? ThemeManager.buttonPressedColor : 
-                                               (parent.hovered ? ThemeManager.buttonHoverColor : "transparent")
-                                        radius: 2
-                                    }
-                                    
-                                    contentItem: Text {
-                                        text: parent.text
-                                        color: ThemeManager.textColor
-                                        font.pixelSize: 16
-                                        horizontalAlignment: Text.AlignHCenter
-                                        verticalAlignment: Text.AlignVCenter
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
         // Graph info/stats
         Label {
             Layout.fillWidth: true
@@ -577,7 +464,9 @@ Page {
                                     modelData.signalSize,
                                     modelData.isSigned,
                                     modelData.isLittleEndian,
-                                    modelData.name
+                                    modelData.name,
+                                    modelData.min,
+                                    modelData.max
                                 )
                                 signalPickerDialog.close()
                             }
