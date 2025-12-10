@@ -7,9 +7,9 @@ import QtQuick.Effects
 Page {
     id: framesPage
 
-    // Toggle to enable/disable QML debug logs from this view
-    // MainWindow can set this when instantiating
     property bool debugLogging: true
+    property bool graphVisible: false
+
 
     Component.onCompleted: {
         if (debugLogging) {
@@ -76,66 +76,78 @@ Page {
 
             Button {
                 id: chkOverwrite
-                width: 36
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
                 height: 28
+                icon.source: "qrc:/icons/images/unstack.svg"
                 onClicked: {
                     overwriteMode = !overwriteMode;
                     overwriteChanged(overwriteMode);
-                }
-                contentItem: Image {
-                    source: overwriteMode ? "qrc:/icons/images/stack.svg" : "qrc:/icons/images/unstack.svg"
-                    anchors.centerIn: parent
-                    fillMode: Image.PreserveAspectFit
                 }
                 ToolTip {
                     text: overwriteMode ? qsTr("Collapse All") : qsTr("Expand All")
                 }
                 background: Rectangle {
                     color: parent.pressed ? ThemeManager.buttonPressedColor : (parent.hovered ? ThemeManager.buttonHoverColor : "transparent")
-                    border.color: ThemeManager.borderColor
-                    border.width: 1
+                    border.color: overwriteMode ? ThemeManager.accentColor : ThemeManager.borderColor
+                    border.width: overwriteMode ? 2 : 1
                     radius: 4
                 }
             }
 
             Button {
                 id: chkInterpret
-                width: 36
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
                 height: 28
                 enabled: hasDBCFiles
                 checkable: true
                 checked: false
+                icon.source: "qrc:/icons/images/interpret.svg"
                 onClicked: {
                     if (enabled) {
                         interpretMode = checked;
                         interpretChanged(checked);
                     }
                 }
-                contentItem: Image {
-                    source: "qrc:/icons/images/interpret.svg"
-                    anchors.centerIn: parent
-                    fillMode: Image.PreserveAspectFit
-                    opacity: enabled ? 1.0 : 0.5
-                }
                 ToolTip {
                     text: qsTr("Interpret CAN frames using DBC files")
                 }
                 background: Rectangle {
-                    color: parent.checked ? ThemeManager.accentColor : (parent.pressed ? ThemeManager.buttonPressedColor : (parent.hovered ? ThemeManager.buttonHoverColor : "transparent"))
-                    border.color: ThemeManager.borderColor
-                    border.width: 1
+                    color: parent.pressed ? ThemeManager.buttonPressedColor : (parent.hovered ? ThemeManager.buttonHoverColor : "transparent")
+                    border.color: parent.checked ? ThemeManager.accentColor : ThemeManager.borderColor
+                    border.width: parent.checked ? 2 : 1
                     radius: 4
                 }
             }
 
-            Item {
+            Button {
+                id: btnGraph
                 Layout.fillWidth: true
+                Layout.preferredWidth: 0
+                height: 28
+                icon.source: "qrc:/icons/images/open_graph.svg"
+                onClicked: {
+                    graphVisible = !graphVisible;
+                }
+                ToolTip {
+                    text: qsTr("Create Graph")
+                }
+                background: Rectangle {
+                    color: parent.pressed ? ThemeManager.buttonPressedColor
+                                        : (parent.hovered ? ThemeManager.buttonHoverColor : "transparent")
+                    border.color: graphVisible ? ThemeManager.accentColor : ThemeManager.borderColor
+                    border.width: graphVisible ? 2 : 1
+                    radius: 4
+                }
             }
 
             Button {
                 id: btnExpandAll
-                width: 36
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
                 height: 28
+                icon.source: allExpanded ? "qrc:/icons/images/colapse.svg" : "qrc:/icons/images/expand.svg"
                 onClicked: {
                     var setTo = !allExpanded;
                     for (var i = 0; i < framesModel.count; i++) {
@@ -144,11 +156,6 @@ Page {
                         });
                     }
                     allExpanded = setTo;
-                }
-                contentItem: Image {
-                    source: allExpanded ? "qrc:/icons/images/colapse.svg" : "qrc:/icons/images/expand.svg"
-                    anchors.centerIn: parent
-                    fillMode: Image.PreserveAspectFit
                 }
                 ToolTip {
                     text: allExpanded ? qsTr("Collapse All") : qsTr("Expand All")
@@ -163,14 +170,11 @@ Page {
 
             Button {
                 id: btnClear
-                width: 36
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
                 height: 28
+                icon.source: "qrc:/icons/images/clear.svg"
                 onClicked: clearFrames()
-                contentItem: Image {
-                    source: "qrc:/icons/images/clear.svg"
-                    anchors.centerIn: parent
-                    fillMode: Image.PreserveAspectFit
-                }
 
                 ToolTip {
                     text: qsTr("Clear")
@@ -442,6 +446,33 @@ Page {
             font.pixelSize: 12
             color: ThemeManager.secondaryTextColor
             horizontalAlignment: Text.AlignRight
+        }
+
+        Rectangle {
+            id: graphOverlay
+            anchors.fill: parent
+            visible: graphVisible
+            color: ThemeManager.backgroundColor
+            z: 100 // Above everything else
+            
+            // Slide in/out animation
+            transform: Translate {
+                id: graphTranslate
+                y: graphVisible ? 0 : mainWindow.height
+                
+                Behavior on y {
+                    NumberAnimation {
+                        duration: 300
+                        easing.type: Easing.OutCubic
+                    }
+                }
+            }
+            
+            GraphView {
+                id: graphView
+                objectName: "graphView"
+                anchors.fill: parent
+            }
         }
     }
 

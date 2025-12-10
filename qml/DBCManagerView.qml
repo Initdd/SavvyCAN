@@ -10,9 +10,32 @@ Page {
     signal removeDBCFile(int index)
     signal refreshDBCList()
     
+    // Loading state
+    property bool isLoading: false
+    
     // Apply theme background
     background: Rectangle {
         color: ThemeManager.backgroundColor
+    }
+    
+    // Connect to file selection signal from native picker
+    Component.onCompleted: {
+        if (typeof dbcPersistenceManager !== 'undefined' && dbcPersistenceManager) {
+            dbcPersistenceManager.fileSelected.connect(function(uriString) {
+                if (uriString && uriString.length > 0) {
+                    console.log("DBCManagerView: File selected from native picker: " + uriString)
+                    
+                    // Convert URI to path for loading
+                    var path = uriString
+                    if (path.startsWith("file://")) {
+                        path = path.substring(7)
+                    }
+                    
+                    // Load the DBC file
+                    loadDBCFile(path)
+                }
+            })
+        }
     }
     
     // ListModel for DBC files
@@ -33,16 +56,7 @@ Page {
             color: ThemeManager.textColor
             Layout.fillWidth: true
             horizontalAlignment: Text.AlignHCenter
-        }
-        
-        // Info label
-        Label {
-            text: qsTr("Load and manage DBC files for CAN frame interpretation")
-            font.pixelSize: 12
-            color: ThemeManager.secondaryTextColor
-            Layout.fillWidth: true
-            horizontalAlignment: Text.AlignHCenter
-            wrapMode: Text.WordWrap
+            padding: 8
         }
         
         // DBC Files List
@@ -52,6 +66,85 @@ Page {
             border.color: ThemeManager.borderColor
             border.width: 1
             color: ThemeManager.secondaryBackgroundColor
+            
+            // Loading overlay
+            Rectangle {
+                anchors.fill: parent
+                color: Qt.rgba(0, 0, 0, 0.5)
+                visible: isLoading
+                z: 100
+                
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 15
+                    
+                    BusyIndicator {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        running: isLoading
+                        width: 64
+                        height: 64
+                        
+                        contentItem: Item {
+                            implicitWidth: 64
+                            implicitHeight: 64
+                            
+                            Item {
+                                id: busyItem
+                                width: 64
+                                height: 64
+                                opacity: isLoading ? 1 : 0
+                                
+                                Behavior on opacity {
+                                    OpacityAnimator {
+                                        duration: 250
+                                    }
+                                }
+                                
+                                RotationAnimator {
+                                    target: busyItem
+                                    running: isLoading
+                                    from: 0
+                                    to: 360
+                                    loops: Animation.Infinite
+                                    duration: 1250
+                                }
+                                
+                                Repeater {
+                                    id: repeater
+                                    model: 6
+                                    
+                                    Rectangle {
+                                        x: busyItem.width / 2 - width / 2
+                                        y: busyItem.height / 2 - height / 2
+                                        width: busyItem.width / 7
+                                        height: width
+                                        radius: width / 2
+                                        color: ThemeManager.accentColor
+                                        transform: [
+                                            Translate {
+                                                y: -Math.min(busyItem.width, busyItem.height) * 0.5 + width / 2
+                                            },
+                                            Rotation {
+                                                angle: index / repeater.count * 360
+                                                origin.x: width / 2
+                                                origin.y: height / 2
+                                            }
+                                        ]
+                                        opacity: 1.0 - index / repeater.count
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    Label {
+                        text: qsTr("Loading DBC file...")
+                        font.pixelSize: 14
+                        color: "white"
+                        anchors.horizontalCenter: parent.horizontalCenter
+                    }
+                }
+            }
             
             ScrollView {
                 anchors.fill: parent
@@ -182,21 +275,34 @@ Page {
                 text: qsTr("Load DBC File")
                 font.pixelSize: 14
                 Layout.fillWidth: true
-                onClicked: fileDialog.open()
+                onClicked: {
+                    // Use native Android file picker with proper permissions
+                    if (typeof dbcPersistenceManager !== 'undefined' && dbcPersistenceManager) {
+                        console.log("DBCManagerView: Opening native file picker")
+                        dbcPersistenceManager.openNativeFilePicker()
+                    } else {
+                        console.warn("DBCManagerView: Persistence manager not available")
+                        // Fallback to Qt file dialog
+                        fileDialog.open()
+                    }
+                }
+                enabled: !isLoading
                 highlighted: true
                 
                 contentItem: Text {
                     text: parent.text
                     font: parent.font
-                    color: ThemeManager.buttonTextColor
+                    color: parent.enabled ? ThemeManager.textColor : ThemeManager.tertiaryTextColor
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
                 background: Rectangle {
-                    color: parent.pressed ? ThemeManager.accentColor : 
-                           (parent.hovered ? Qt.lighter(ThemeManager.accentColor, 1.2) : ThemeManager.accentColor)
-                    border.color: ThemeManager.accentColor
-                    border.width: 1
+                    color: parent.enabled ? 
+                           (parent.pressed ? ThemeManager.buttonPressedColor : 
+                           (parent.hovered ? ThemeManager.buttonHoverColor : "transparent")) :
+                           "transparent"
+                    border.color: parent.enabled ? ThemeManager.accentColor : ThemeManager.borderColor
+                    border.width: 2
                     radius: 4
                 }
             }
@@ -225,7 +331,7 @@ Page {
         }
     }
     
-    // File dialog for loading DBC files
+    // File dialog for loading DBC files (fallback for non-Android or if native picker fails)
     FileDialog {
         id: fileDialog
         title: "Select DBC File"
@@ -237,13 +343,7 @@ Page {
                 path = path.substring(7)
             }
             
-            // Save the URI for persistence (before actually loading it)
-            if (typeof dbcPersistenceManager !== 'undefined' && dbcPersistenceManager) {
-                var fullUri = selectedFile.toString()
-                console.log("DBCManagerView: Saving DBC URI for persistence: " + fullUri)
-                dbcPersistenceManager.saveDbcUri(fullUri)
-            }
-            
+            console.log("DBCManagerView: File selected via Qt FileDialog: " + path)
             loadDBCFile(path)
         }
     }
@@ -251,6 +351,11 @@ Page {
     // Functions to update from C++
     function updateFileCount(count) {
         fileCountLabel.text = "Loaded files: " + count
+    }
+    
+    function setLoading(loading) {
+        isLoading = loading
+        console.log("DBCManagerView: Loading state changed to:", loading)
     }
     
     function clearFilesList() {
@@ -300,6 +405,18 @@ Page {
         var invalidUris = dbcPersistenceManager.cleanupInvalidUris()
         if (invalidUris.length > 0) {
             console.log("DBCManagerView: Removed " + invalidUris.length + " invalid URIs")
+            
+            // Show user-friendly message about removed files
+            var fileNames = []
+            for (var j = 0; j < invalidUris.length; j++) {
+                var filename = dbcPersistenceManager.getFilenameFromUri(invalidUris[j])
+                fileNames.push(filename)
+            }
+            
+            // Log detailed message about removed files
+            console.warn("DBCManagerView: Lost permissions for " + invalidUris.length + " DBC file(s): " + fileNames.join(", "))
+            console.warn("DBCManagerView: This can happen after device reboot or when Android revokes permissions")
+            console.warn("DBCManagerView: Please re-add these files using the 'Add DBC File' button")
         }
         
         var savedUris = dbcPersistenceManager.getSavedDbcUris()

@@ -5,6 +5,32 @@
 #include <QJniObject>
 #include <QCoreApplication>
 #include <QJniEnvironment>
+
+// Global instance pointer for JNI callback
+static DbcPersistenceManager* g_persistenceInstance = nullptr;
+
+// JNI callback function called from Java when file is selected
+extern "C" JNIEXPORT void JNICALL
+Java_org_savvycan_SavvyCANActivity_notifyFileSelected(JNIEnv *env, jobject thiz, jstring uriString)
+{
+    if (g_persistenceInstance && uriString) {
+        const char *nativeString = env->GetStringUTFChars(uriString, nullptr);
+        QString uri = QString::fromUtf8(nativeString);
+        env->ReleaseStringUTFChars(uriString, nativeString);
+        
+        qDebug() << "DbcPersistenceManager: File selected from native picker:" << uri;
+        
+        // Emit signal to QML
+        QMetaObject::invokeMethod(g_persistenceInstance, "fileSelected", 
+                                 Qt::QueuedConnection,
+                                 Q_ARG(QString, uri));
+    } else if (g_persistenceInstance) {
+        qDebug() << "DbcPersistenceManager: File picker cancelled";
+        QMetaObject::invokeMethod(g_persistenceInstance, "fileSelected", 
+                                 Qt::QueuedConnection,
+                                 Q_ARG(QString, QString()));
+    }
+}
 #endif
 
 DbcPersistenceManager::DbcPersistenceManager(QObject *parent)
@@ -14,6 +40,7 @@ DbcPersistenceManager::DbcPersistenceManager(QObject *parent)
 #endif
 {
 #ifdef Q_OS_ANDROID
+    g_persistenceInstance = this;
     initializeJavaManager();
 #endif
 }
@@ -275,5 +302,87 @@ void DbcPersistenceManager::clearAllUris()
     }
     
     qDebug() << "DbcPersistenceManager: Cleared all URIs";
+#endif
+}
+
+QString DbcPersistenceManager::getFilenameFromUri(const QString &uriString)
+{
+#ifdef Q_OS_ANDROID
+    if (!javaManager || !javaManager->isValid()) {
+        qWarning() << "DbcPersistenceManager: Java manager not initialized";
+        return uriString;
+    }
+    
+    QJniObject jniUri = QJniObject::fromString(uriString);
+    QJniObject jniResult = javaManager->callObjectMethod("getFilenameFromUri",
+                                                          "(Ljava/lang/String;)Ljava/lang/String;",
+                                                          jniUri.object<jstring>());
+    
+    // Check for exceptions
+    QJniEnvironment env;
+    if (env->ExceptionCheck()) {
+        qWarning() << "DbcPersistenceManager: Exception in getFilenameFromUri";
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+        return uriString;
+    }
+    
+    if (jniResult.isValid()) {
+        return jniResult.toString();
+    }
+    
+    return uriString;
+#else
+    Q_UNUSED(uriString);
+    // On non-Android, extract filename from path
+    int lastSlash = uriString.lastIndexOf('/');
+    if (lastSlash >= 0) {
+        return uriString.mid(lastSlash + 1);
+    }
+    return uriString;
+#endif
+}
+
+void DbcPersistenceManager::openNativeFilePicker()
+{
+#ifdef Q_OS_ANDROID
+    if (!javaManager || !javaManager->isValid()) {
+        qWarning() << "DbcPersistenceManager: Java manager not initialized";
+        return;
+    }
+    
+    // Get the Android activity
+    QJniObject activity = QJniObject::callStaticObjectMethod(
+        "org/qtproject/qt/android/QtNative",
+        "activity",
+        "()Landroid/app/Activity;"
+    );
+    
+    if (!activity.isValid()) {
+        qWarning() << "DbcPersistenceManager: Could not get Android activity";
+        return;
+    }
+    
+    // Call openFilePicker on the Java manager
+    bool success = javaManager->callMethod<jboolean>("openFilePicker",
+                                                      "(Landroid/app/Activity;)Z",
+                                                      activity.object<jobject>());
+    
+    // Check for exceptions
+    QJniEnvironment env;
+    if (env->ExceptionCheck()) {
+        qWarning() << "DbcPersistenceManager: Exception in openNativeFilePicker";
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+        return;
+    }
+    
+    if (success) {
+        qDebug() << "DbcPersistenceManager: Native file picker opened successfully";
+    } else {
+        qWarning() << "DbcPersistenceManager: Failed to open native file picker";
+    }
+#else
+    qDebug() << "DbcPersistenceManager: Native file picker only available on Android";
 #endif
 }

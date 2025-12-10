@@ -10,11 +10,22 @@ Page {
     signal clearGrid
     signal cellChanged(int row, int column, string value)
     signal addSender
+    signal toggleDBCMode(bool dbcMode)
+    signal requestDBCMessages()
+    signal requestDBCSignals(string messageName)
+    signal dbcSignalValueChanged(int senderIndex, string messageName, string signalName, var value)
 
     // Apply theme background
     background: Rectangle {
         color: ThemeManager.backgroundColor
     }
+
+    // DBC mode state
+    property bool dbcMode: true
+    property var dbcMessages: []
+    property var dbcSignals: []
+    property string currentDBCMessage: ""
+    property var signalValues: ({}) // Store signal values keyed by signal name
 
     // ListModel for sender entries
     ListModel {
@@ -40,6 +51,33 @@ Page {
             }
 
             Button {
+                text: dbcMode ? qsTr("DBC") : qsTr("Manual")
+                font.pixelSize: 14
+                checkable: true
+                checked: dbcMode
+                onClicked: {
+                    dbcMode = !dbcMode
+                    toggleDBCMode(dbcMode)
+                    if (dbcMode) {
+                        requestDBCMessages()
+                    }
+                }
+                contentItem: Text {
+                    text: parent.text
+                    font: parent.font
+                    color: ThemeManager.textColor
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                background: Rectangle {
+                    color: parent.checked ? ThemeManager.accentColor : (parent.pressed ? ThemeManager.buttonPressedColor : (parent.hovered ? ThemeManager.buttonHoverColor : ThemeManager.buttonColor))
+                    border.color: ThemeManager.borderColor
+                    border.width: 2
+                    radius: 4
+                }
+            }
+
+            Button {
                 text: qsTr("+ Add")
                 font.pixelSize: 14
                 onClicked: addSenderItem()
@@ -47,14 +85,14 @@ Page {
                 contentItem: Text {
                     text: parent.text
                     font: parent.font
-                    color: ThemeManager.buttonTextColor
+                    color: ThemeManager.textColor
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
                 background: Rectangle {
                     color: parent.pressed ? ThemeManager.buttonPressedColor : (parent.hovered ? ThemeManager.buttonHoverColor : ThemeManager.buttonColor)
                     border.color: ThemeManager.borderColor
-                    border.width: 1
+                    border.width: 2
                     radius: 4
                 }
             }
@@ -171,6 +209,7 @@ Page {
                                 columns: 4
                                 columnSpacing: 12
                                 rowSpacing: 8
+                                visible: !dbcMode
 
                                 Label {
                                     text: qsTr("ID:")
@@ -208,6 +247,11 @@ Page {
                                             height: 14
                                             width: parent.width / 3    // adjust width as needed
                                             color: ThemeManager.inputBackgroundColor   // same as background, so it's invisible
+                                        }
+                                    }
+                                    onEditingFinished: {
+                                        if (model.frameId !== text) {
+                                            cellChanged(index, 2, text);
                                         }
                                     }
                                 }
@@ -263,6 +307,7 @@ Page {
                                 Layout.fillWidth: true
                                 spacing: 12
                                 Layout.alignment: Qt.AlignVCenter
+                                visible: !dbcMode
 
                                 Label {
                                     text: qsTr("Data:")
@@ -303,6 +348,251 @@ Page {
                                     onEditingFinished: {
                                         if (model.data !== text) {
                                             cellChanged(index, 4, text);
+                                        }
+                                    }
+                                }
+                            }
+
+                            // DBC Mode UI
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                visible: dbcMode
+
+                                // Message selection
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 12
+
+                                    Label {
+                                        text: qsTr("Message:")
+                                        font.pixelSize: 13
+                                        font.bold: true
+                                        color: ThemeManager.textColor
+                                        Layout.alignment: Qt.AlignVCenter
+                                    }
+
+                                    ComboBox {
+                                        id: messageComboBox
+                                        Layout.fillWidth: true
+                                        model: dbcMessages
+                                        textRole: "name"
+                                        font.pixelSize: 13
+                                        displayText: currentIndex >= 0 && dbcMessages.length > 0 ? dbcMessages[currentIndex].name : ""
+                                        
+                                        onCurrentIndexChanged: {
+                                            if (currentIndex >= 0 && dbcMessages.length > 0) {
+                                                var msg = dbcMessages[currentIndex]
+                                                // Store message name in the model
+                                                senderListModel.setProperty(index, "messageName", msg.name)
+                                                // Update frame ID from selected message
+                                                cellChanged(index, 2, "0x" + msg.id.toString(16))
+                                                // Request signals for this message
+                                                requestDBCSignals(msg.name)
+                                            }
+                                        }
+                                        
+                                        Component.onCompleted: {
+                                            // Try to restore previous selection if messageName is set
+                                            if (model.messageName) {
+                                                for (var i = 0; i < dbcMessages.length; i++) {
+                                                    if (dbcMessages[i].name === model.messageName) {
+                                                        currentIndex = i
+                                                        break
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        
+                                        contentItem: Text {
+                                            leftPadding: 10
+                                            rightPadding: messageComboBox.indicator.width + messageComboBox.spacing
+                                            text: messageComboBox.displayText
+                                            font: messageComboBox.font
+                                            color: "white"
+                                            verticalAlignment: Text.AlignVCenter
+                                            elide: Text.ElideRight
+                                        }
+                                        
+                                        background: Rectangle {
+                                            color: ThemeManager.inputBackgroundColor
+                                            border.color: parent.activeFocus ? ThemeManager.inputFocusBorderColor : ThemeManager.inputBorderColor
+                                            border.width: 1
+                                            radius: 5
+                                        }
+                                        
+                                        delegate: ItemDelegate {
+                                            width: messageComboBox.width
+                                            text: modelData.name || ""
+                                            highlighted: messageComboBox.highlightedIndex === index
+                                            
+                                            contentItem: Text {
+                                                text: parent.text
+                                                color: parent.highlighted ? ThemeManager.backgroundColor : ThemeManager.textColor
+                                                font: messageComboBox.font
+                                                elide: Text.ElideRight
+                                                verticalAlignment: Text.AlignVCenter
+                                                leftPadding: 10
+                                            }
+                                            
+                                            background: Rectangle {
+                                                color: parent.highlighted ? ThemeManager.accentColor : "transparent"
+                                            }
+                                        }
+                                        
+                                        popup: Popup {
+                                            y: messageComboBox.height - 1
+                                            width: messageComboBox.width
+                                            height: Math.min(contentItem.implicitHeight + 2, 300)
+                                            padding: 1
+                                            
+                                            contentItem: ListView {
+                                                clip: true
+                                                implicitHeight: contentHeight
+                                                model: messageComboBox.popup.visible ? messageComboBox.delegateModel : null
+                                                currentIndex: messageComboBox.highlightedIndex
+                                                
+                                                ScrollIndicator.vertical: ScrollIndicator { }
+                                            }
+                                            
+                                            background: Rectangle {
+                                                border.color: ThemeManager.borderColor
+                                                border.width: 1
+                                                color: ThemeManager.secondaryBackgroundColor
+                                                radius: 2
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Signals list (dynamically populated based on selected message)
+                                Label {
+                                    text: qsTr("Signal Values:")
+                                    font.pixelSize: 13
+                                    font.bold: true
+                                    color: ThemeManager.textColor
+                                    visible: dbcSignals.length > 0
+                                }
+
+                                Repeater {
+                                    model: dbcSignals
+                                    
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 12
+                                        
+                                        Label {
+                                            text: modelData.name + ":"
+                                            font.pixelSize: 12
+                                            color: ThemeManager.textColor
+                                            Layout.preferredWidth: 100
+                                            elide: Text.ElideRight
+                                        }
+                                        
+                                        // Check if signal has enum values
+                                        ComboBox {
+                                            id: signalCombo
+                                            Layout.fillWidth: true
+                                            visible: modelData.hasEnumValues
+                                            editable: true
+                                            model: modelData.enumValues
+                                            textRole: "name"
+                                            font.pixelSize: 12
+                                            displayText: currentIndex >= 0 ? model[currentIndex].name : editText
+                                            
+                                            // Set initial value from enum or allow custom input
+                                            Component.onCompleted: {
+                                                editText = modelData.defaultValue || "0"
+                                            }
+                                            
+                                            contentItem: TextField {
+                                                leftPadding: 8
+                                                rightPadding: signalCombo.indicator.width + signalCombo.spacing
+                                                text: signalCombo.editable ? signalCombo.editText : signalCombo.displayText
+                                                font: signalCombo.font
+                                                color: ThemeManager.textColor
+                                                verticalAlignment: Text.AlignVCenter
+                                                readOnly: !signalCombo.editable
+                                                selectByMouse: true
+                                                
+                                                background: Rectangle {
+                                                    color: "transparent"
+                                                }
+                                            }
+                                            
+                                            background: Rectangle {
+                                                color: ThemeManager.inputBackgroundColor
+                                                border.color: parent.activeFocus ? ThemeManager.inputFocusBorderColor : ThemeManager.inputBorderColor
+                                                border.width: 1
+                                                radius: 4
+                                            }
+                                            
+                                            delegate: ItemDelegate {
+                                                width: signalCombo.width
+                                                text: modelData.name || ""
+                                                highlighted: signalCombo.highlightedIndex === index
+                                                
+                                                contentItem: Text {
+                                                    text: parent.text
+                                                    color: parent.highlighted ? ThemeManager.backgroundColor : ThemeManager.textColor
+                                                    font: signalCombo.font
+                                                    elide: Text.ElideRight
+                                                    verticalAlignment: Text.AlignVCenter
+                                                    leftPadding: 8
+                                                }
+                                                
+                                                background: Rectangle {
+                                                    color: parent.highlighted ? ThemeManager.accentColor : "transparent"
+                                                }
+                                            }
+                                            
+                                            popup: Popup {
+                                                y: signalCombo.height - 1
+                                                width: signalCombo.width
+                                                height: Math.min(contentItem.implicitHeight + 2, 200)
+                                                padding: 1
+                                                
+                                                contentItem: ListView {
+                                                    clip: true
+                                                    implicitHeight: contentHeight
+                                                    model: signalCombo.popup.visible ? signalCombo.delegateModel : null
+                                                    currentIndex: signalCombo.highlightedIndex
+                                                    
+                                                    ScrollIndicator.vertical: ScrollIndicator { }
+                                                }
+                                                
+                                                background: Rectangle {
+                                                    border.color: ThemeManager.borderColor
+                                                    border.width: 1
+                                                    color: ThemeManager.secondaryBackgroundColor
+                                                    radius: 2
+                                                }
+                                            }
+                                        }
+                                        
+                                        TextField {
+                                            Layout.fillWidth: true
+                                            visible: !modelData.hasEnumValues
+                                            text: modelData.defaultValue || "0"
+                                            font.pixelSize: 12
+                                            placeholderText: "Value"
+                                            color: ThemeManager.textColor
+                                            placeholderTextColor: ThemeManager.secondaryTextColor
+                                            padding: 6
+                                            
+                                            background: Rectangle {
+                                                color: ThemeManager.inputBackgroundColor
+                                                border.color: parent.activeFocus ? ThemeManager.inputFocusBorderColor : ThemeManager.inputBorderColor
+                                                border.width: 1
+                                                radius: 4
+                                            }
+                                        }
+                                        
+                                        Label {
+                                            text: modelData.unit || ""
+                                            font.pixelSize: 11
+                                            color: ThemeManager.secondaryTextColor
+                                            visible: modelData.unit && modelData.unit.length > 0
                                         }
                                     }
                                 }
@@ -472,7 +762,8 @@ Page {
             "length": 8,
             "data": "00 00 00 00 00 00 00 00",
             "interval": 100,
-            "count": 0
+            "count": 0,
+            "messageName": "" // For DBC mode
         });
         // Notify C++ side
         addSender();
@@ -487,6 +778,7 @@ Page {
 
     function updateSenderItem(index, enabled, bus, frameId, length, data, interval, count) {
         if (index >= 0 && index < senderListModel.count) {
+            var messageName = senderListModel.get(index).messageName || "";
             senderListModel.set(index, {
                 "enabled": enabled,
                 "bus": bus,
@@ -494,7 +786,8 @@ Page {
                 "length": length,
                 "data": data,
                 "interval": interval,
-                "count": count
+                "count": count,
+                "messageName": messageName
             });
         }
     }
@@ -505,5 +798,14 @@ Page {
 
     function getSenderCount() {
         return senderListModel.count;
+    }
+
+    // DBC mode functions
+    function setDBCMessages(messages) {
+        dbcMessages = messages;
+    }
+
+    function setDBCSignals(signals) {
+        dbcSignals = signals;
     }
 }

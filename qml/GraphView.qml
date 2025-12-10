@@ -135,9 +135,11 @@ Page {
             }
             
             Button {
-                text: qsTr("Clear")
+                width: 36
+                height: 28
                 onClicked: removeSignal()
                 enabled: hasSignals
+                icon.source: "qrc:/icons/images/clear.svg"
                 ToolTip {
                     text: qsTr("Clear the current signal from the graph")
                 }
@@ -150,11 +152,34 @@ Page {
                     border.width: 1
                     radius: 4
                 }
-                contentItem: Text {
-                    text: parent.text
-                    color: parent.enabled ? ThemeManager.textColor : ThemeManager.secondaryTextColor
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
+            }
+            
+            Button {
+                width: 36
+                height: 28
+                onClicked: {
+                    // Close the graph overlay
+                    var framesView = graphPage.parent
+                    while (framesView && !framesView.hasOwnProperty('graphVisible')) {
+                        framesView = framesView.parent
+                    }
+                    if (framesView) {
+                        framesView.graphVisible = false
+                    }
+                }
+
+                icon.source: "qrc:/icons/images/exit_graph.svg"
+                icon.color: ThemeManager.errorColor
+
+                ToolTip {
+                    text: qsTr("Close Graph")
+                }
+                background: Rectangle {
+                    color: parent.pressed ? ThemeManager.buttonPressedColor : 
+                           (parent.hovered ? ThemeManager.buttonHoverColor : "transparent")
+                    border.color: ThemeManager.errorColor
+                    border.width: 1
+                    radius: 4
                 }
             }
         }

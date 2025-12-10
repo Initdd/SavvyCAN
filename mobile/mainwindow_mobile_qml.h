@@ -73,6 +73,9 @@ public slots:
     void handleAddSender();
     void handleSenderCellChange(int row, int col, const QString &value);
     void handleSenderTick();
+    void handleDBCModeChanged(bool dbcMode);
+    void handleRequestDBCMessages();
+    void handleRequestDBCSignals(const QString &messageName);
     
     // DBC Manager tab
     void handleLoadDBCFile(const QString &filePath);
@@ -135,6 +138,10 @@ private:
     
     // Track last timestamp for each frame ID+bus (for timedelta calculation)
     QHash<uint64_t, uint64_t> lastFrameTimestamp; // key: (frameId | (bus << 29)), value: timestamp in microseconds
+    
+    // DBC loading state to prevent concurrent loads
+    bool m_isLoadingDBC;
+    QStringList m_dbcLoadQueue;
     
     // Singleton reference
     static MainWindowMobileQML *selfRef;

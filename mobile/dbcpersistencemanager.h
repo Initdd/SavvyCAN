@@ -24,6 +24,15 @@ public:
     explicit DbcPersistenceManager(QObject *parent = nullptr);
     ~DbcPersistenceManager();
     
+signals:
+    /**
+     * @brief Emitted when a file is selected from the native file picker
+     * @param uriString The URI of the selected file
+     */
+    void fileSelected(const QString &uriString);
+    
+public slots:
+    
     /**
      * @brief Save a DBC file URI for persistence
      * @param uriString The URI string to save (can be file:// or content://)
@@ -61,6 +70,19 @@ public:
      * @brief Clear all saved URIs
      */
     Q_INVOKABLE void clearAllUris();
+    
+    /**
+     * @brief Get just the filename from a URI for display purposes
+     * @param uriString The URI string
+     * @return The extracted filename
+     */
+    Q_INVOKABLE QString getFilenameFromUri(const QString &uriString);
+    
+    /**
+     * @brief Open native Android file picker that properly requests persistable permissions
+     * This replaces Qt's FileDialog which doesn't request persistable permissions on Android
+     */
+    Q_INVOKABLE void openNativeFilePicker();
     
 private:
 #ifdef Q_OS_ANDROID

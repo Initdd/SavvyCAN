@@ -36,6 +36,7 @@ MainWindowMobileQML::MainWindowMobileQML(QQmlApplicationEngine *engine, QObject 
     , m_frameCount(0)
     , m_selectedConnectionIndex(-1)
     , m_connectionDialogOpen(false)
+    , m_isLoadingDBC(false)
 {
     selfRef = this;
     
@@ -102,6 +103,9 @@ void MainWindowMobileQML::connectQMLSignals()
             connect(m_senderView, SIGNAL(clearGrid()), this, SLOT(handleClearGrid()));
             connect(m_senderView, SIGNAL(addSender()), this, SLOT(handleAddSender()));
             connect(m_senderView, SIGNAL(cellChanged(int,int,QString)), this, SLOT(handleSenderCellChange(int,int,QString)));
+            connect(m_senderView, SIGNAL(toggleDBCMode(bool)), this, SLOT(handleDBCModeChanged(bool)));
+            connect(m_senderView, SIGNAL(requestDBCMessages()), this, SLOT(handleRequestDBCMessages()));
+            connect(m_senderView, SIGNAL(requestDBCSignals(QString)), this, SLOT(handleRequestDBCSignals(QString)));
         }
         
         if (m_dbcManagerView) {
@@ -202,8 +206,30 @@ MainWindowMobileQML::~MainWindowMobileQML()
 
 void MainWindowMobileQML::handleDroppedFile(const QString &filename)
 {
-    // Stub for Android - file dropping not typically used
-    Q_UNUSED(filename);
+    // Handle file drops/shares on Android (typically DBC files)
+    qDebug() << "File dropped/shared:" << filename;
+    
+    if (filename.isEmpty()) {
+        qDebug() << "Empty filename provided";
+        return;
+    }
+    
+    // Check if file exists and is accessible
+    QFileInfo fileInfo(filename);
+    if (!fileInfo.exists()) {
+        qDebug() << "File does not exist:" << filename;
+        return;
+    }
+    
+    // Handle DBC files
+    QString extension = fileInfo.suffix().toLower();
+    if (extension == "dbc") {
+        qDebug() << "Loading DBC file:" << filename;
+        handleLoadDBCFile(filename);
+    } else {
+        qDebug() << "Unsupported file type:" << extension;
+        // Could extend this to handle other file types (e.g., .log, .csv, etc.)
+    }
 }
 
 MainWindowMobileQML* MainWindowMobileQML::getReference()
@@ -883,6 +909,123 @@ void MainWindowMobileQML::handleSenderCellChange(int row, int col, const QString
     }
 }
 
+void MainWindowMobileQML::handleDBCModeChanged(bool dbcMode)
+{
+    qDebug() << "DBC mode changed to:" << dbcMode;
+    
+    if (dbcMode) {
+        // When entering DBC mode, automatically populate the message list
+        handleRequestDBCMessages();
+    }
+}
+
+void MainWindowMobileQML::handleRequestDBCMessages()
+{
+    qDebug() << "Requesting DBC messages...";
+    
+    DBCHandler *dbcHandler = DBCHandler::getReference();
+    if (!dbcHandler) {
+        qDebug() << "DBCHandler not available";
+        return;
+    }
+    
+    QVariantList messages;
+    
+    // Iterate through all loaded DBC files
+    int fileCount = dbcHandler->getFileCount();
+    for (int fileIdx = 0; fileIdx < fileCount; fileIdx++) {
+        DBCFile *dbcFile = dbcHandler->getFileByIdx(fileIdx);
+        if (!dbcFile) continue;
+        
+        // Get all messages from this file
+        int msgCount = dbcFile->messageHandler->getCount();
+        for (int msgIdx = 0; msgIdx < msgCount; msgIdx++) {
+            DBC_MESSAGE *msg = dbcFile->messageHandler->findMsgByIdx(msgIdx);
+            if (msg) {
+                QVariantMap msgData;
+                msgData["name"] = msg->name;
+                msgData["id"] = msg->ID;
+                msgData["length"] = msg->len;
+                msgData["comment"] = msg->comment;
+                messages.append(msgData);
+            }
+        }
+    }
+    
+    qDebug() << "Found" << messages.size() << "DBC messages";
+    
+    // Send the messages to QML
+    if (m_senderView) {
+        QMetaObject::invokeMethod(m_senderView, "setDBCMessages",
+            Q_ARG(QVariant, messages)
+        );
+    }
+}
+
+void MainWindowMobileQML::handleRequestDBCSignals(const QString &messageName)
+{
+    qDebug() << "Requesting DBC signals for message:" << messageName;
+    
+    DBCHandler *dbcHandler = DBCHandler::getReference();
+    if (!dbcHandler) {
+        qDebug() << "DBCHandler not available";
+        return;
+    }
+    
+    QVariantList signalList;
+    
+    // Find the message by name
+    DBC_MESSAGE *msg = dbcHandler->findMessage(messageName);
+    if (msg) {
+        // Get all signals from this message
+        int sigCount = msg->sigHandler->getCount();
+        for (int sigIdx = 0; sigIdx < sigCount; sigIdx++) {
+            DBC_SIGNAL *sig = msg->sigHandler->findSignalByIdx(sigIdx);
+            if (sig) {
+                QVariantMap sigData;
+                sigData["name"] = sig->name;
+                sigData["startBit"] = sig->startBit;
+                sigData["length"] = sig->signalSize;
+                sigData["unit"] = sig->unitName;
+                sigData["min"] = sig->min;
+                sigData["max"] = sig->max;
+                sigData["factor"] = sig->factor;
+                sigData["bias"] = sig->bias;
+                sigData["comment"] = sig->comment;
+                
+                // Check if signal has enum values
+                bool hasEnumValues = !sig->valList.isEmpty();
+                sigData["hasEnumValues"] = hasEnumValues;
+                
+                if (hasEnumValues) {
+                    QVariantList enumValues;
+                    for (const DBC_VAL_ENUM_ENTRY &entry : sig->valList) {
+                        QVariantMap enumData;
+                        enumData["value"] = entry.value;
+                        enumData["name"] = entry.descript;
+                        enumValues.append(enumData);
+                    }
+                    sigData["enumValues"] = enumValues;
+                }
+                
+                // Set default value (use min or 0)
+                sigData["defaultValue"] = sig->min;
+                
+                signalList.append(sigData);
+            }
+        }
+    }
+    
+    qDebug() << "Found" << signalList.size() << "signals for message" << messageName;
+    
+    // Send the signals to QML
+    if (m_senderView) {
+        QMetaObject::invokeMethod(m_senderView, "setDBCSignals",
+            Q_ARG(QVariant, signalList)
+        );
+    }
+}
+
 void MainWindowMobileQML::handleSenderTick()
 {
     // Process periodic sending with proper timing tracking
@@ -1255,9 +1398,27 @@ void MainWindowMobileQML::logReceivedFrame(const CANFrame& frame)
 
 void MainWindowMobileQML::getBusSettings(int bus, CANBus& busSettings)
 {
-    Q_UNUSED(bus);
-    Q_UNUSED(busSettings);
-    // Stub for getting bus settings
+    // Get bus settings from the selected connection, or first connection if none selected
+    const QList<CANConnection*>& conns = canManager->getConnections();
+    if (conns.isEmpty()) {
+        qDebug() << "No connections available to get bus settings";
+        return;
+    }
+    
+    // Use selected connection index, or default to first connection
+    int connIndex = (m_selectedConnectionIndex >= 0 && m_selectedConnectionIndex < conns.size()) 
+                    ? m_selectedConnectionIndex : 0;
+    
+    CANConnection* conn = conns[connIndex];
+    if (conn && bus >= 0 && bus < conn->getNumBuses()) {
+        if (conn->getBusSettings(bus, busSettings)) {
+            qDebug() << "Retrieved bus settings for bus" << bus << "from connection" << connIndex;
+        } else {
+            qDebug() << "Failed to get bus settings for bus" << bus;
+        }
+    } else {
+        qDebug() << "Invalid bus index" << bus << "or connection unavailable";
+    }
 }
 
 // DBC Manager functions
@@ -1265,20 +1426,88 @@ void MainWindowMobileQML::handleLoadDBCFile(const QString &filePath)
 {
     qDebug() << "Loading DBC file:" << filePath;
     
-    DBCHandler* dbcHandler = DBCHandler::getReference();
-    if (!dbcHandler) {
-        qDebug() << "DBCHandler not available";
+    // If already loading a DBC, queue this request
+    if (m_isLoadingDBC) {
+        qDebug() << "DBC load already in progress, queueing:" << filePath;
+        if (!m_dbcLoadQueue.contains(filePath)) {
+            m_dbcLoadQueue.append(filePath);
+        }
         return;
     }
     
-    DBCFile* dbcFile = dbcHandler->loadDBCFile(filePath);
-    if (dbcFile) {
-        qDebug() << "DBC file loaded successfully";
-        updateDBCFileList();
-        updateInterpretCheckboxState();
-    } else {
-        qDebug() << "Failed to load DBC file";
+    // Mark as loading to prevent concurrent loads
+    m_isLoadingDBC = true;
+    
+    // Show loading indicator in QML
+    if (m_dbcManagerView) {
+        QMetaObject::invokeMethod(m_dbcManagerView, "setLoading",
+            Qt::QueuedConnection,
+            Q_ARG(QVariant, true));
     }
+    
+    // Defer the actual loading to next event loop to allow UI to update
+    QTimer::singleShot(0, this, [this, filePath]() {
+        DBCHandler* dbcHandler = DBCHandler::getReference();
+        if (!dbcHandler) {
+            qDebug() << "DBCHandler not available";
+            m_isLoadingDBC = false;
+            
+            // Hide loading indicator
+            if (m_dbcManagerView) {
+                QMetaObject::invokeMethod(m_dbcManagerView, "setLoading",
+                    Qt::QueuedConnection,
+                    Q_ARG(QVariant, false));
+            }
+            return;
+        }
+        
+        DBCFile* dbcFile = dbcHandler->loadDBCFile(filePath);
+        if (dbcFile) {
+            qDebug() << "DBC file loaded successfully";
+            
+            // Use QueuedConnection for UI updates to avoid deadlock
+            QTimer::singleShot(50, this, [this]() {
+                updateDBCFileList();
+                updateInterpretCheckboxState();
+                
+                // Mark as done and hide loading indicator
+                m_isLoadingDBC = false;
+                if (m_dbcManagerView) {
+                    QMetaObject::invokeMethod(m_dbcManagerView, "setLoading",
+                        Qt::QueuedConnection,
+                        Q_ARG(QVariant, false));
+                }
+                
+                // Process next queued load if any
+                if (!m_dbcLoadQueue.isEmpty()) {
+                    QString nextPath = m_dbcLoadQueue.takeFirst();
+                    qDebug() << "Processing queued DBC load:" << nextPath;
+                    QTimer::singleShot(100, this, [this, nextPath]() {
+                        handleLoadDBCFile(nextPath);
+                    });
+                }
+            });
+        } else {
+            qDebug() << "Failed to load DBC file";
+            m_isLoadingDBC = false;
+            
+            // Hide loading indicator
+            if (m_dbcManagerView) {
+                QMetaObject::invokeMethod(m_dbcManagerView, "setLoading",
+                    Qt::QueuedConnection,
+                    Q_ARG(QVariant, false));
+            }
+            
+            // Process next queued load if any
+            if (!m_dbcLoadQueue.isEmpty()) {
+                QString nextPath = m_dbcLoadQueue.takeFirst();
+                qDebug() << "Processing queued DBC load after failure:" << nextPath;
+                QTimer::singleShot(100, this, [this, nextPath]() {
+                    handleLoadDBCFile(nextPath);
+                });
+            }
+        }
+    });
 }
 
 void MainWindowMobileQML::handleRemoveDBCFile(int index)
@@ -1317,8 +1546,8 @@ void MainWindowMobileQML::updateDBCFileList()
         return;
     }
     
-    // Clear existing list
-    bool success = QMetaObject::invokeMethod(m_dbcManagerView, "clearFilesList", Qt::AutoConnection);
+    // Clear existing list - use QueuedConnection to avoid OpenGL deadlock
+    bool success = QMetaObject::invokeMethod(m_dbcManagerView, "clearFilesList", Qt::QueuedConnection);
     if (!success) {
         qDebug() << "Warning: Failed to invoke clearFilesList on DBC manager view";
     }
@@ -1337,8 +1566,9 @@ void MainWindowMobileQML::updateDBCFileList()
             
             qDebug() << "  Adding DBC file:" << i << filename << "Messages:" << messageCount << "Bus:" << associatedBus;
             
+            // Use QueuedConnection to avoid OpenGL deadlock on Android
             success = QMetaObject::invokeMethod(m_dbcManagerView, "addDBCFile",
-                Qt::AutoConnection,
+                Qt::QueuedConnection,
                 Q_ARG(QVariant, filename),
                 Q_ARG(QVariant, fullPath),
                 Q_ARG(QVariant, messageCount),
