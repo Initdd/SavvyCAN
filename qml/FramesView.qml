@@ -10,7 +10,6 @@ Page {
     property bool debugLogging: true
     property bool graphVisible: false
 
-
     Component.onCompleted: {
         if (debugLogging) {
             console.log("FramesView onCompleted - checking mainWindowQML...");
@@ -134,8 +133,7 @@ Page {
                     text: qsTr("Create Graph")
                 }
                 background: Rectangle {
-                    color: parent.pressed ? ThemeManager.buttonPressedColor
-                                        : (parent.hovered ? ThemeManager.buttonHoverColor : "transparent")
+                    color: parent.pressed ? ThemeManager.buttonPressedColor : (parent.hovered ? ThemeManager.buttonHoverColor : "transparent")
                     border.color: graphVisible ? ThemeManager.accentColor : ThemeManager.borderColor
                     border.width: graphVisible ? 2 : 1
                     radius: 4
@@ -379,7 +377,7 @@ Page {
                                                     radius: width
                                                     color: parent.pressed ? Qt.darker(ThemeManager.accentColor, 1.2) : ThemeManager.accentColor
                                                 }
-                                                
+
                                                 contentItem: Text {
                                                     text: "+"
                                                     font.pixelSize: 8
@@ -454,12 +452,12 @@ Page {
             visible: graphVisible
             color: ThemeManager.backgroundColor
             z: 100 // Above everything else
-            
+
             // Slide in/out animation
             transform: Translate {
                 id: graphTranslate
                 y: graphVisible ? 0 : mainWindow.height
-                
+
                 Behavior on y {
                     NumberAnimation {
                         duration: 300
@@ -467,7 +465,7 @@ Page {
                     }
                 }
             }
-            
+
             GraphView {
                 id: graphView
                 objectName: "graphView"

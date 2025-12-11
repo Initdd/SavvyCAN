@@ -11,7 +11,7 @@ Page {
     signal cellChanged(int row, int column, string value)
     signal addSender
     signal toggleDBCMode(bool dbcMode)
-    signal requestDBCMessages()
+    signal requestDBCMessages
     signal requestDBCSignals(string messageName)
     signal dbcSignalValueChanged(int senderIndex, string messageName, string signalName, var value)
 
@@ -56,10 +56,10 @@ Page {
                 checkable: true
                 checked: dbcMode
                 onClicked: {
-                    dbcMode = !dbcMode
-                    toggleDBCMode(dbcMode)
+                    dbcMode = !dbcMode;
+                    toggleDBCMode(dbcMode);
                     if (dbcMode) {
-                        requestDBCMessages()
+                        requestDBCMessages();
                     }
                 }
                 contentItem: Text {
@@ -256,8 +256,6 @@ Page {
                                     }
                                 }
 
-
-
                                 Label {
                                     text: qsTr("Bus:")
                                     font.pixelSize: 13
@@ -280,7 +278,7 @@ Page {
                                         border.color: parent.activeFocus ? ThemeManager.inputFocusBorderColor : ThemeManager.inputBorderColor
                                         border.width: 1
                                         radius: 5
-                                        
+
                                         // Faint patch behind placeholder
                                         Rectangle {
                                             visible: parent.parent.placeholderText && parent.parent.text.length === 0
@@ -331,7 +329,7 @@ Page {
                                         border.color: parent.activeFocus ? ThemeManager.inputFocusBorderColor : ThemeManager.inputBorderColor
                                         border.width: 1
                                         radius: 5
-                                        
+
                                         // Faint patch behind placeholder
                                         Rectangle {
                                             visible: parent.parent.placeholderText && parent.parent.text.length === 0
@@ -379,31 +377,31 @@ Page {
                                         textRole: "name"
                                         font.pixelSize: 13
                                         displayText: currentIndex >= 0 && dbcMessages.length > 0 ? dbcMessages[currentIndex].name : ""
-                                        
+
                                         onCurrentIndexChanged: {
                                             if (currentIndex >= 0 && dbcMessages.length > 0) {
-                                                var msg = dbcMessages[currentIndex]
+                                                var msg = dbcMessages[currentIndex];
                                                 // Store message name in the model
-                                                senderListModel.setProperty(index, "messageName", msg.name)
+                                                senderListModel.setProperty(index, "messageName", msg.name);
                                                 // Update frame ID from selected message
-                                                cellChanged(index, 2, "0x" + msg.id.toString(16))
+                                                cellChanged(index, 2, "0x" + msg.id.toString(16));
                                                 // Request signals for this message
-                                                requestDBCSignals(msg.name)
+                                                requestDBCSignals(msg.name);
                                             }
                                         }
-                                        
+
                                         Component.onCompleted: {
                                             // Try to restore previous selection if messageName is set
                                             if (model.messageName) {
                                                 for (var i = 0; i < dbcMessages.length; i++) {
                                                     if (dbcMessages[i].name === model.messageName) {
-                                                        currentIndex = i
-                                                        break
+                                                        currentIndex = i;
+                                                        break;
                                                     }
                                                 }
                                             }
                                         }
-                                        
+
                                         contentItem: Text {
                                             leftPadding: 10
                                             rightPadding: messageComboBox.indicator.width + messageComboBox.spacing
@@ -413,19 +411,19 @@ Page {
                                             verticalAlignment: Text.AlignVCenter
                                             elide: Text.ElideRight
                                         }
-                                        
+
                                         background: Rectangle {
                                             color: ThemeManager.inputBackgroundColor
                                             border.color: parent.activeFocus ? ThemeManager.inputFocusBorderColor : ThemeManager.inputBorderColor
                                             border.width: 1
                                             radius: 5
                                         }
-                                        
+
                                         delegate: ItemDelegate {
                                             width: messageComboBox.width
                                             text: modelData.name || ""
                                             highlighted: messageComboBox.highlightedIndex === index
-                                            
+
                                             contentItem: Text {
                                                 text: parent.text
                                                 color: parent.highlighted ? ThemeManager.backgroundColor : ThemeManager.textColor
@@ -434,27 +432,27 @@ Page {
                                                 verticalAlignment: Text.AlignVCenter
                                                 leftPadding: 10
                                             }
-                                            
+
                                             background: Rectangle {
                                                 color: parent.highlighted ? ThemeManager.accentColor : "transparent"
                                             }
                                         }
-                                        
+
                                         popup: Popup {
                                             y: messageComboBox.height - 1
                                             width: messageComboBox.width
                                             height: Math.min(contentItem.implicitHeight + 2, 300)
                                             padding: 1
-                                            
+
                                             contentItem: ListView {
                                                 clip: true
                                                 implicitHeight: contentHeight
                                                 model: messageComboBox.popup.visible ? messageComboBox.delegateModel : null
                                                 currentIndex: messageComboBox.highlightedIndex
-                                                
-                                                ScrollIndicator.vertical: ScrollIndicator { }
+
+                                                ScrollIndicator.vertical: ScrollIndicator {}
                                             }
-                                            
+
                                             background: Rectangle {
                                                 border.color: ThemeManager.borderColor
                                                 border.width: 1
@@ -476,11 +474,11 @@ Page {
 
                                 Repeater {
                                     model: dbcSignals
-                                    
+
                                     RowLayout {
                                         Layout.fillWidth: true
                                         spacing: 12
-                                        
+
                                         Label {
                                             text: modelData.name + ":"
                                             font.pixelSize: 12
@@ -488,7 +486,7 @@ Page {
                                             Layout.preferredWidth: 100
                                             elide: Text.ElideRight
                                         }
-                                        
+
                                         // Check if signal has enum values
                                         ComboBox {
                                             id: signalCombo
@@ -499,12 +497,12 @@ Page {
                                             textRole: "name"
                                             font.pixelSize: 12
                                             displayText: currentIndex >= 0 ? model[currentIndex].name : editText
-                                            
+
                                             // Set initial value from enum or allow custom input
                                             Component.onCompleted: {
-                                                editText = modelData.defaultValue || "0"
+                                                editText = modelData.defaultValue || "0";
                                             }
-                                            
+
                                             contentItem: TextField {
                                                 leftPadding: 8
                                                 rightPadding: signalCombo.indicator.width + signalCombo.spacing
@@ -514,24 +512,24 @@ Page {
                                                 verticalAlignment: Text.AlignVCenter
                                                 readOnly: !signalCombo.editable
                                                 selectByMouse: true
-                                                
+
                                                 background: Rectangle {
                                                     color: "transparent"
                                                 }
                                             }
-                                            
+
                                             background: Rectangle {
                                                 color: ThemeManager.inputBackgroundColor
                                                 border.color: parent.activeFocus ? ThemeManager.inputFocusBorderColor : ThemeManager.inputBorderColor
                                                 border.width: 1
                                                 radius: 4
                                             }
-                                            
+
                                             delegate: ItemDelegate {
                                                 width: signalCombo.width
                                                 text: modelData.name || ""
                                                 highlighted: signalCombo.highlightedIndex === index
-                                                
+
                                                 contentItem: Text {
                                                     text: parent.text
                                                     color: parent.highlighted ? ThemeManager.backgroundColor : ThemeManager.textColor
@@ -540,27 +538,27 @@ Page {
                                                     verticalAlignment: Text.AlignVCenter
                                                     leftPadding: 8
                                                 }
-                                                
+
                                                 background: Rectangle {
                                                     color: parent.highlighted ? ThemeManager.accentColor : "transparent"
                                                 }
                                             }
-                                            
+
                                             popup: Popup {
                                                 y: signalCombo.height - 1
                                                 width: signalCombo.width
                                                 height: Math.min(contentItem.implicitHeight + 2, 200)
                                                 padding: 1
-                                                
+
                                                 contentItem: ListView {
                                                     clip: true
                                                     implicitHeight: contentHeight
                                                     model: signalCombo.popup.visible ? signalCombo.delegateModel : null
                                                     currentIndex: signalCombo.highlightedIndex
-                                                    
-                                                    ScrollIndicator.vertical: ScrollIndicator { }
+
+                                                    ScrollIndicator.vertical: ScrollIndicator {}
                                                 }
-                                                
+
                                                 background: Rectangle {
                                                     border.color: ThemeManager.borderColor
                                                     border.width: 1
@@ -569,7 +567,7 @@ Page {
                                                 }
                                             }
                                         }
-                                        
+
                                         TextField {
                                             Layout.fillWidth: true
                                             visible: !modelData.hasEnumValues
@@ -579,7 +577,7 @@ Page {
                                             color: ThemeManager.textColor
                                             placeholderTextColor: ThemeManager.secondaryTextColor
                                             padding: 6
-                                            
+
                                             background: Rectangle {
                                                 color: ThemeManager.inputBackgroundColor
                                                 border.color: parent.activeFocus ? ThemeManager.inputFocusBorderColor : ThemeManager.inputBorderColor
@@ -587,7 +585,7 @@ Page {
                                                 radius: 4
                                             }
                                         }
-                                        
+
                                         Label {
                                             text: modelData.unit || ""
                                             font.pixelSize: 11
@@ -627,7 +625,7 @@ Page {
                                         border.color: parent.activeFocus ? ThemeManager.inputFocusBorderColor : ThemeManager.inputBorderColor
                                         border.width: 1
                                         radius: 5
-                                        
+
                                         // Faint patch behind placeholder
                                         Rectangle {
                                             visible: parent.parent.placeholderText && parent.parent.text.length === 0

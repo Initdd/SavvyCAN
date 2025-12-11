@@ -19,7 +19,7 @@ ApplicationWindow {
         background: Rectangle {
             color: ThemeManager.tabBarBackground
         }
-        
+
         TabButton {
             text: qsTr("Connections")
             font.pixelSize: 16
@@ -65,37 +65,37 @@ ApplicationWindow {
             }
         }
     }
-    
+
     // Safe area insets for notch/status bar
     readonly property real safeAreaTop: {
         if (Qt.platform.os === "android" || Qt.platform.os === "ios") {
-            return 24
+            return 24;
         }
-        return 0
+        return 0;
     }
 
     SwipeView {
         id: swipeView
         anchors.fill: parent
         currentIndex: tabBar.currentIndex
-        
+
         ConnectionsView {
             id: connectionsView
             objectName: "connectionsView"
         }
-    
+
         FramesView {
             id: framesView
             objectName: "framesView"
             // Disable noisy QML logs by default
             debugLogging: false
         }
-        
+
         SenderView {
             id: senderView
             objectName: "senderView"
         }
-        
+
         DBCManagerView {
             id: dbcManagerView
             objectName: "dbcManagerView"
