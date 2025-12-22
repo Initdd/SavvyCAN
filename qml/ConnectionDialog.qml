@@ -597,45 +597,45 @@ Dialog {
                 }
             }
         }
+    }
 
-        onAccepted: {
-            // Connection parameters will be read by C++
-            console.log("Connection dialog accepted:", selectedType, hostAddress, port);
-        }
+    onAccepted: {
+        // Connection parameters will be read by C++
+        console.log("Connection dialog accepted:", selectedType, hostAddress, port);
+    }
 
-        onOpened: {
-            // Notify C++ that dialog is now open
-            dialogOpened();
-            // Auto-scan for devices when dialog opens
-            scanPorts();
-        }
+    onOpened: {
+        // Notify C++ that dialog is now open
+        dialogOpened();
+        // Auto-scan for devices when dialog opens
+        scanPorts();
+    }
 
-        onClosed: {
-            // Notify C++ that dialog is now closed
-            dialogClosed();
-        }
+    onClosed: {
+        // Notify C++ that dialog is now closed
+        dialogClosed();
+    }
 
-        // Function to update available ports from C++
-        function setAvailablePorts(ports) {
-            availablePorts = ports;
+    // Function to update available ports from C++
+    function setAvailablePorts(ports) {
+        availablePorts = ports;
 
-            // Auto-select first matching device based on connection type
-            if (ports.length > 0) {
-                if (rbSerial.checked) {
-                    // Find first serial device (not network)
-                    for (var i = 0; i < ports.length; i++) {
-                        if (ports[i].indexOf("SocketCANd:") < 0 && ports[i].indexOf("GVRET Remote:") < 0) {
-                            cbSerialDevice.currentIndex = i;
-                            break;
-                        }
+        // Auto-select first matching device based on connection type
+        if (ports.length > 0) {
+            if (rbSerial.checked) {
+                // Find first serial device (not network)
+                for (var i = 0; i < ports.length; i++) {
+                    if (ports[i].indexOf("SocketCANd:") < 0 && ports[i].indexOf("GVRET Remote:") < 0) {
+                        cbSerialDevice.currentIndex = i;
+                        break;
                     }
-                } else if (rbSocketCAN.checked) {
-                    // Find first SocketCANd device
-                    for (var i = 0; i < ports.length; i++) {
-                        if (ports[i].indexOf("SocketCANd:") >= 0 || ports[i].indexOf("GVRET Remote:") >= 0) {
-                            cbSocketHost.currentIndex = i;
-                            break;
-                        }
+                }
+            } else if (rbSocketCAN.checked) {
+                // Find first SocketCANd device
+                for (var i = 0; i < ports.length; i++) {
+                    if (ports[i].indexOf("SocketCANd:") >= 0 || ports[i].indexOf("GVRET Remote:") >= 0) {
+                        cbSocketHost.currentIndex = i;
+                        break;
                     }
                 }
             }

@@ -10,7 +10,6 @@ Page {
     signal clearGrid
     signal cellChanged(int row, int column, string value)
     signal addSender
-    signal toggleDBCMode(bool dbcMode)
     signal requestDBCMessages
     signal requestDBCSignals(string messageName)
     signal dbcSignalValueChanged(int senderIndex, string messageName, string signalName, var value)
@@ -20,8 +19,6 @@ Page {
         color: ThemeManager.backgroundColor
     }
 
-    // DBC mode state
-    property bool dbcMode: true
     property var dbcMessages: []
     property var dbcSignals: []
     property string currentDBCMessage: ""
@@ -48,33 +45,6 @@ Page {
                 font.bold: true
                 color: ThemeManager.textColor
                 Layout.fillWidth: true
-            }
-
-            Button {
-                text: dbcMode ? qsTr("DBC") : qsTr("Manual")
-                font.pixelSize: 14
-                checkable: true
-                checked: dbcMode
-                onClicked: {
-                    dbcMode = !dbcMode;
-                    toggleDBCMode(dbcMode);
-                    if (dbcMode) {
-                        requestDBCMessages();
-                    }
-                }
-                contentItem: Text {
-                    text: parent.text
-                    font: parent.font
-                    color: ThemeManager.textColor
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-                background: Rectangle {
-                    color: parent.checked ? ThemeManager.accentColor : (parent.pressed ? ThemeManager.buttonPressedColor : (parent.hovered ? ThemeManager.buttonHoverColor : ThemeManager.buttonColor))
-                    border.color: ThemeManager.borderColor
-                    border.width: 2
-                    radius: 4
-                }
             }
 
             Button {
@@ -151,9 +121,13 @@ Page {
                                     font.bold: true
                                     checked: model.enabled
                                     onCheckedChanged: {
-                                        if (model.enabled !== checked) {
-                                            cellChanged(index, 0, checked.toString());
-                                        }
+                                        // Use Qt.callLater to break binding loop and ensure model is updated first
+                                        Qt.callLater(function() {
+                                            if (model.enabled !== checked) {
+                                                console.log("Checkbox changed for row", index, "to", checked);
+                                                cellChanged(index, 0, checked.toString());
+                                            }
+                                        });
                                     }
                                     contentItem: Text {
                                         text: enableCheckBox.text
@@ -203,159 +177,10 @@ Page {
                                 opacity: 0.4
                             }
 
-                            // ID and Bus row
-                            GridLayout {
-                                Layout.fillWidth: true
-                                columns: 4
-                                columnSpacing: 12
-                                rowSpacing: 8
-                                visible: !dbcMode
-
-                                Label {
-                                    text: qsTr("ID:")
-                                    font.pixelSize: 13
-                                    font.bold: true
-                                    color: ThemeManager.textColor
-                                    Layout.alignment: Qt.AlignVCenter
-                                }
-
-                                TextField {
-                                    Layout.fillWidth: true
-                                    text: model.frameId
-                                    font.pixelSize: 13
-                                    placeholderText: "0x100"
-                                    color: ThemeManager.textColor
-                                    placeholderTextColor: ThemeManager.secondaryTextColor
-                                    padding: 6
-
-                                    background: Rectangle {
-                                        id: bg
-                                        color: ThemeManager.inputBackgroundColor
-                                        border.color: parent.activeFocus ? ThemeManager.inputFocusBorderColor : ThemeManager.inputBorderColor
-                                        border.width: 1
-                                        radius: 5
-
-                                        // This item creates a faint patch behind the placeholder to hide border lines
-                                        Rectangle {
-                                            id: placeholderPatch
-                                            visible: parent.placeholderText && parent.text.length === 0
-                                            anchors {
-                                                left: parent.left
-                                                top: parent.top
-                                                margins: 4
-                                            }
-                                            height: 14
-                                            width: parent.width / 3    // adjust width as needed
-                                            color: ThemeManager.inputBackgroundColor   // same as background, so it's invisible
-                                        }
-                                    }
-                                    onEditingFinished: {
-                                        if (model.frameId !== text) {
-                                            cellChanged(index, 2, text);
-                                        }
-                                    }
-                                }
-
-                                Label {
-                                    text: qsTr("Bus:")
-                                    font.pixelSize: 13
-                                    font.bold: true
-                                    color: ThemeManager.textColor
-                                    Layout.alignment: Qt.AlignVCenter
-                                }
-
-                                TextField {
-                                    Layout.preferredWidth: 60
-                                    text: model.bus.toString()
-                                    font.pixelSize: 13
-                                    placeholderText: "0"
-                                    color: ThemeManager.textColor
-                                    placeholderTextColor: ThemeManager.secondaryTextColor
-                                    padding: 6
-                                    inputMethodHints: Qt.ImhDigitsOnly
-                                    background: Rectangle {
-                                        color: ThemeManager.inputBackgroundColor
-                                        border.color: parent.activeFocus ? ThemeManager.inputFocusBorderColor : ThemeManager.inputBorderColor
-                                        border.width: 1
-                                        radius: 5
-
-                                        // Faint patch behind placeholder
-                                        Rectangle {
-                                            visible: parent.parent.placeholderText && parent.parent.text.length === 0
-                                            anchors {
-                                                left: parent.left
-                                                top: parent.top
-                                                margins: 4
-                                            }
-                                            height: 14
-                                            width: parent.width / 3
-                                            color: ThemeManager.inputBackgroundColor
-                                        }
-                                    }
-                                    onEditingFinished: {
-                                        if (model.bus !== parseInt(text)) {
-                                            cellChanged(index, 1, text);
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Data row
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: 12
-                                Layout.alignment: Qt.AlignVCenter
-                                visible: !dbcMode
-
-                                Label {
-                                    text: qsTr("Data:")
-                                    font.pixelSize: 13
-                                    font.bold: true
-                                    color: ThemeManager.textColor
-                                    Layout.alignment: Qt.AlignVCenter
-                                }
-
-                                TextField {
-                                    Layout.fillWidth: true
-                                    text: model.data
-                                    font.pixelSize: 13
-                                    font.family: "Monospace"
-                                    placeholderText: "00 11 22 33 44 55 66 77"
-                                    color: ThemeManager.textColor
-                                    placeholderTextColor: ThemeManager.secondaryTextColor
-                                    padding: 6
-                                    background: Rectangle {
-                                        color: ThemeManager.inputBackgroundColor
-                                        border.color: parent.activeFocus ? ThemeManager.inputFocusBorderColor : ThemeManager.inputBorderColor
-                                        border.width: 1
-                                        radius: 5
-
-                                        // Faint patch behind placeholder
-                                        Rectangle {
-                                            visible: parent.parent.placeholderText && parent.parent.text.length === 0
-                                            anchors {
-                                                left: parent.left
-                                                top: parent.top
-                                                margins: 4
-                                            }
-                                            height: 14
-                                            width: parent.width / 2
-                                            color: ThemeManager.inputBackgroundColor
-                                        }
-                                    }
-                                    onEditingFinished: {
-                                        if (model.data !== text) {
-                                            cellChanged(index, 4, text);
-                                        }
-                                    }
-                                }
-                            }
-
                             // DBC Mode UI
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 spacing: 8
-                                visible: dbcMode
 
                                 // Message selection
                                 RowLayout {
@@ -497,6 +322,20 @@ Page {
                                             textRole: "name"
                                             font.pixelSize: 12
                                             displayText: currentIndex >= 0 ? model[currentIndex].name : editText
+                                            
+                                            onCurrentIndexChanged: {
+                                                if (currentIndex >= 0 && model && model[currentIndex]) {
+                                                    var msgName = senderListModel.get(index).messageName || "";
+                                                    dbcSignalValueChanged(index, msgName, modelData.name, model[currentIndex].value);
+                                                }
+                                            }
+                                            
+                                            onEditTextChanged: {
+                                                if (editable && editText) {
+                                                    var msgName = senderListModel.get(index).messageName || "";
+                                                    dbcSignalValueChanged(index, msgName, modelData.name, parseFloat(editText));
+                                                }
+                                            }
 
                                             // Set initial value from enum or allow custom input
                                             Component.onCompleted: {
@@ -577,6 +416,11 @@ Page {
                                             color: ThemeManager.textColor
                                             placeholderTextColor: ThemeManager.secondaryTextColor
                                             padding: 6
+                                            
+                                            onEditingFinished: {
+                                                var msgName = senderListModel.get(index).messageName || "";
+                                                dbcSignalValueChanged(index, msgName, modelData.name, parseFloat(text));
+                                            }
 
                                             background: Rectangle {
                                                 color: ThemeManager.inputBackgroundColor
@@ -800,10 +644,13 @@ Page {
 
     // DBC mode functions
     function setDBCMessages(messages) {
+        console.log("setDBCMessages called with", messages.length, "messages");
         dbcMessages = messages;
+        console.log("dbcMessages now has", dbcMessages.length, "items");
     }
 
     function setDBCSignals(signals) {
+        console.log("setDBCSignals called with", signals.length, "signals");
         dbcSignals = signals;
     }
 }

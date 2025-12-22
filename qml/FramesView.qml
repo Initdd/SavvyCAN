@@ -78,16 +78,16 @@ Page {
                 Layout.fillWidth: true
                 Layout.preferredWidth: 0
                 height: 28
-                icon.source: "qrc:/icons/images/unstack.svg"
+                icon.source: overwriteMode ? "qrc:/icons/images/stack.svg" : "qrc:/icons/images/unstack.svg"
                 onClicked: {
                     overwriteMode = !overwriteMode;
                     overwriteChanged(overwriteMode);
                 }
                 ToolTip {
-                    text: overwriteMode ? qsTr("Collapse All") : qsTr("Expand All")
+                    text: qsTr("Toggle Overwrite Mode")
                 }
                 background: Rectangle {
-                    color: parent.pressed ? ThemeManager.buttonPressedColor : (parent.hovered ? ThemeManager.buttonHoverColor : "transparent")
+                    color: overwriteMode ? ThemeManager.accentColor : (parent.hovered ? ThemeManager.buttonHoverColor : "transparent")
                     border.color: overwriteMode ? ThemeManager.accentColor : ThemeManager.borderColor
                     border.width: overwriteMode ? 2 : 1
                     radius: 4
@@ -113,13 +113,41 @@ Page {
                     text: qsTr("Interpret CAN frames using DBC files")
                 }
                 background: Rectangle {
-                    color: parent.pressed ? ThemeManager.buttonPressedColor : (parent.hovered ? ThemeManager.buttonHoverColor : "transparent")
-                    border.color: parent.checked ? ThemeManager.accentColor : ThemeManager.borderColor
-                    border.width: parent.checked ? 2 : 1
+                    color: hasDBCFiles && checked ? 
+                        ThemeManager.accentColor : 
+                        (parent.hovered ? ThemeManager.buttonHoverColor : "transparent")
+                    border.color: checked ? ThemeManager.accentColor : ThemeManager.borderColor
+                    border.width: checked ? 2 : 1
                     radius: 4
                 }
             }
 
+            Button {
+                id: btnExpandAll
+                Layout.fillWidth: true
+                Layout.preferredWidth: 0
+                height: 28
+                icon.source: "qrc:/icons/images/expand.svg"
+                onClicked: {
+                    for (var i = 0; i < framesModel.count; i++) {
+                        framesModel.set(i, {
+                            "expanded": true
+                        });
+                    }
+                    allExpanded = true;
+                }
+                ToolTip {
+                    text: qsTr("Expand All")
+                }
+                background: Rectangle {
+                    //color: parent.pressed ? ThemeManager.buttonPressedColor : (parent.hovered ? ThemeManager.buttonHoverColor : "transparent")
+                    color: allExpanded ? ThemeManager.accentColor : (parent.hovered ? ThemeManager.buttonHoverColor : "transparent")
+                    border.color: allExpanded ? ThemeManager.accentColor : ThemeManager.borderColor
+                    border.width: allExpanded ? 2 : 1
+                    radius: 4
+                }
+            }
+            
             Button {
                 id: btnGraph
                 Layout.fillWidth: true
@@ -136,32 +164,6 @@ Page {
                     color: parent.pressed ? ThemeManager.buttonPressedColor : (parent.hovered ? ThemeManager.buttonHoverColor : "transparent")
                     border.color: graphVisible ? ThemeManager.accentColor : ThemeManager.borderColor
                     border.width: graphVisible ? 2 : 1
-                    radius: 4
-                }
-            }
-
-            Button {
-                id: btnExpandAll
-                Layout.fillWidth: true
-                Layout.preferredWidth: 0
-                height: 28
-                icon.source: allExpanded ? "qrc:/icons/images/colapse.svg" : "qrc:/icons/images/expand.svg"
-                onClicked: {
-                    var setTo = !allExpanded;
-                    for (var i = 0; i < framesModel.count; i++) {
-                        framesModel.set(i, {
-                            "expanded": setTo
-                        });
-                    }
-                    allExpanded = setTo;
-                }
-                ToolTip {
-                    text: allExpanded ? qsTr("Collapse All") : qsTr("Expand All")
-                }
-                background: Rectangle {
-                    color: parent.pressed ? ThemeManager.buttonPressedColor : (parent.hovered ? ThemeManager.buttonHoverColor : "transparent")
-                    border.color: ThemeManager.borderColor
-                    border.width: 1
                     radius: 4
                 }
             }
@@ -416,6 +418,12 @@ Page {
                                     framesModel.set(index, {
                                         "expanded": !expanded
                                     });
+                                    // Update allExpanded property
+                                    if (!expanded) {
+                                        allExpanded = false;
+                                    } else {
+                                        allExpanded = contentColumn.parent.checkCollapsedRows() ? false : true;
+                                    }
                                 }
                             }
                         }

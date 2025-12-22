@@ -73,9 +73,9 @@ public slots:
     void handleAddSender();
     void handleSenderCellChange(int row, int col, const QString &value);
     void handleSenderTick();
-    void handleDBCModeChanged(bool dbcMode);
     void handleRequestDBCMessages();
     void handleRequestDBCSignals(const QString &messageName);
+    void handleDBCSignalValueChanged(int senderIndex, const QString &messageName, const QString &signalName, const QVariant &value);
 
     // DBC Manager tab
     void handleLoadDBCFile(const QString &filePath);

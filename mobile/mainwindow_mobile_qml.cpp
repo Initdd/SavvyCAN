@@ -89,9 +89,9 @@ void MainWindowMobileQML::connectQMLSignals()
             connect(m_senderView, SIGNAL(clearGrid()), this, SLOT(handleClearGrid()));
             connect(m_senderView, SIGNAL(addSender()), this, SLOT(handleAddSender()));
             connect(m_senderView, SIGNAL(cellChanged(int, int, QString)), this, SLOT(handleSenderCellChange(int, int, QString)));
-            connect(m_senderView, SIGNAL(toggleDBCMode(bool)), this, SLOT(handleDBCModeChanged(bool)));
             connect(m_senderView, SIGNAL(requestDBCMessages()), this, SLOT(handleRequestDBCMessages()));
             connect(m_senderView, SIGNAL(requestDBCSignals(QString)), this, SLOT(handleRequestDBCSignals(QString)));
+            connect(m_senderView, SIGNAL(dbcSignalValueChanged(int, QString, QString, QVariant)), this, SLOT(handleDBCSignalValueChanged(int, QString, QString, QVariant)));
         }
 
         if (m_dbcManagerView)
@@ -105,17 +105,8 @@ void MainWindowMobileQML::connectQMLSignals()
     // Get CAN manager singleton
     canManager = CANConManager::getInstance();
 
-    // Initialize sender data
-    sendingData.resize(10);
-    for (int i = 0; i < sendingData.size(); i++)
-    {
-        sendingData[i].enabled = false;
-        sendingData[i].bus = 0;
-        sendingData[i].setFrameId(0);
-        sendingData[i].setExtendedFrameFormat(false);
-        sendingData[i].setFrameType(QCanBusFrame::DataFrame);
-        sendingData[i].count = 0;
-    }
+    // Initialize sender data (start with empty list, senders will be added from QML)
+    sendingData.clear();
     sendingLastTimeStamp = 0;
 
     // Setup timer for periodic sending
@@ -159,6 +150,8 @@ void MainWindowMobileQML::connectQMLSignals()
                 qDebug() << "Initializing DBC UI with" << dbcHandler->getFileCount() << "files";
                 updateDBCFileList();
                 updateInterpretCheckboxState();
+                // Also initialize the Sender view with DBC messages
+                handleRequestDBCMessages();
             } else {
                 qDebug() << "No DBC files loaded after persistence check";
                 // Just ensure the interpret checkbox is disabled
@@ -758,43 +751,108 @@ void MainWindowMobileQML::handleConnectionDialogClosed()
 
 void MainWindowMobileQML::handleEnableAll()
 {
+    qDebug() << "handleEnableAll called";
     for (int i = 0; i < sendingData.size(); i++)
     {
         sendingData[i].enabled = true;
+        
+        // Reset triggers when enabling (same as individual enable)
+        if (sendingData[i].triggers.count() > 0)
+        {
+            for (int j = 0; j < sendingData[i].triggers.count(); j++)
+            {
+                sendingData[i].triggers[j].readyCount = true;
+                sendingData[i].triggers[j].currCount = 0;
+                sendingData[i].triggers[j].msCounter = 0;
+            }
+        }
     }
+    
+    // Update QML model to reflect enabled state
+    if (m_senderView)
+    {
+        for (int i = 0; i < sendingData.size(); i++)
+        {
+            QString frameIdHex = QString("0x%1").arg(sendingData[i].frameId(), 0, 16).toUpper();
+            QByteArray payload = sendingData[i].payload();
+            QString dataHex;
+            for (int j = 0; j < payload.length(); j++)
+            {
+                if (j > 0) dataHex += " ";
+                dataHex += QString("%1").arg((unsigned char)payload[j], 2, 16, QChar('0')).toUpper();
+            }
+            int intervalMs = 100;
+            if (!sendingData[i].triggers.isEmpty())
+                intervalMs = sendingData[i].triggers[0].milliseconds;
+            
+            QMetaObject::invokeMethod(m_senderView, "updateSenderItem",
+                                      Q_ARG(QVariant, i),
+                                      Q_ARG(QVariant, true),
+                                      Q_ARG(QVariant, sendingData[i].bus),
+                                      Q_ARG(QVariant, frameIdHex),
+                                      Q_ARG(QVariant, payload.length()),
+                                      Q_ARG(QVariant, dataHex),
+                                      Q_ARG(QVariant, intervalMs),
+                                      Q_ARG(QVariant, sendingData[i].count));
+        }
+    }
+    
+    qDebug() << "Enabled" << sendingData.size() << "senders";
 }
 
 void MainWindowMobileQML::handleDisableAll()
 {
+    qDebug() << "handleDisableAll called";
     for (int i = 0; i < sendingData.size(); i++)
     {
         sendingData[i].enabled = false;
     }
+    
+    // Update QML model to reflect disabled state
+    if (m_senderView)
+    {
+        for (int i = 0; i < sendingData.size(); i++)
+        {
+            QString frameIdHex = QString("0x%1").arg(sendingData[i].frameId(), 0, 16).toUpper();
+            QByteArray payload = sendingData[i].payload();
+            QString dataHex;
+            for (int j = 0; j < payload.length(); j++)
+            {
+                if (j > 0) dataHex += " ";
+                dataHex += QString("%1").arg((unsigned char)payload[j], 2, 16, QChar('0')).toUpper();
+            }
+            int intervalMs = 100;
+            if (!sendingData[i].triggers.isEmpty())
+                intervalMs = sendingData[i].triggers[0].milliseconds;
+            
+            QMetaObject::invokeMethod(m_senderView, "updateSenderItem",
+                                      Q_ARG(QVariant, i),
+                                      Q_ARG(QVariant, false),
+                                      Q_ARG(QVariant, sendingData[i].bus),
+                                      Q_ARG(QVariant, frameIdHex),
+                                      Q_ARG(QVariant, payload.length()),
+                                      Q_ARG(QVariant, dataHex),
+                                      Q_ARG(QVariant, intervalMs),
+                                      Q_ARG(QVariant, sendingData[i].count));
+        }
+    }
+    qDebug() << "Disabled" << sendingData.size() << "senders";
 }
 
 void MainWindowMobileQML::handleClearGrid()
 {
-    // Stop any active sending
-    for (int i = 0; i < sendingData.size(); i++)
-    {
-        sendingData[i].enabled = false;
-    }
-
+    qDebug() << "handleClearGrid called - clearing" << sendingData.size() << "senders";
+    
+    // Stop any active sending and clear all data
     sendingData.clear();
-    sendingData.resize(10);
-
-    // Initialize each entry with default values
-    for (int i = 0; i < sendingData.size(); i++)
+    
+    // Clear the QML model
+    if (m_senderView)
     {
-        sendingData[i].enabled = false;
-        sendingData[i].bus = 0;
-        sendingData[i].setFrameId(0);
-        sendingData[i].setExtendedFrameFormat(false);
-        sendingData[i].setFrameType(QCanBusFrame::DataFrame);
-        sendingData[i].count = 0;
-        sendingData[i].triggers.clear();
-        sendingData[i].modifiers.clear();
+        QMetaObject::invokeMethod(m_senderView, "clearSenderList");
     }
+    
+    qDebug() << "Grid cleared, senders now:" << sendingData.size();
 }
 
 void MainWindowMobileQML::handleAddSender()
@@ -831,6 +889,8 @@ void MainWindowMobileQML::handleAddSender()
 
 void MainWindowMobileQML::handleSenderCellChange(int row, int col, const QString &value)
 {
+    qDebug() << "handleSenderCellChange called: row=" << row << "col=" << col << "value=" << value;
+    
     if (row < 0 || row >= sendingData.size())
     {
         qDebug() << "Invalid row index:" << row;
@@ -842,8 +902,43 @@ void MainWindowMobileQML::handleSenderCellChange(int row, int col, const QString
     switch (col)
     {
     case 0: // Enable
-        sendingData[row].enabled = (value == "true" || value == "1");
+    {
+        bool newEnabledState = (value == "true" || value == "1");
+        sendingData[row].enabled = newEnabledState;
+        
+        // When enabling, ensure triggers exist and are ready
+        if (newEnabledState)
+        {
+            if (sendingData[row].triggers.count() == 0)
+            {
+                // No triggers exist, create a default one (100ms interval)
+                qDebug() << "Warning: Sender" << row << "has no triggers. Creating default 100ms trigger.";
+                Trigger defaultTrigger;
+                defaultTrigger.bus = -1;
+                defaultTrigger.ID = -1;
+                defaultTrigger.maxCount = -1;
+                defaultTrigger.milliseconds = 100;
+                defaultTrigger.currCount = 0;
+                defaultTrigger.msCounter = 0;
+                defaultTrigger.triggerMask = 0;
+                defaultTrigger.readyCount = true;
+                sendingData[row].triggers.append(defaultTrigger);
+            }
+            else
+            {
+                // Reset trigger readyCount and counters
+                for (int j = 0; j < sendingData[row].triggers.count(); j++)
+                {
+                    sendingData[row].triggers[j].readyCount = true;
+                    sendingData[row].triggers[j].currCount = 0;
+                    sendingData[row].triggers[j].msCounter = 0;
+                }
+            }
+            qDebug() << "Enabled sender" << row << "with" << sendingData[row].triggers.count() << "triggers, ID:" 
+                     << QString("0x%1").arg(sendingData[row].frameId(), 0, 16).toUpper();
+        }
         break;
+    }
     case 1: // Bus
     {
         int busVal = value.toInt();
@@ -869,6 +964,20 @@ void MainWindowMobileQML::handleSenderCellChange(int row, int col, const QString
         if (id > 0x7FF)
         {
             sendingData[row].setExtendedFrameFormat(true);
+        }
+        
+        // If this is a DBC message, initialize the frame data with correct length
+        DBCHandler *dbcHandler = DBCHandler::getReference();
+        if (dbcHandler)
+        {
+            DBC_MESSAGE *msg = dbcHandler->findMessage(id);
+            if (msg)
+            {
+                qDebug() << "Found DBC message for ID" << QString("0x%1").arg(id, 0, 16).toUpper() 
+                         << "- initializing payload to" << msg->len << "bytes";
+                QByteArray payload(msg->len, 0);
+                sendingData[row].setPayload(payload);
+            }
         }
         break;
     }
@@ -969,17 +1078,6 @@ void MainWindowMobileQML::handleSenderCellChange(int row, int col, const QString
                                   Q_ARG(QVariant, dataHex),
                                   Q_ARG(QVariant, intervalMs),
                                   Q_ARG(QVariant, sendingData[row].count));
-    }
-}
-
-void MainWindowMobileQML::handleDBCModeChanged(bool dbcMode)
-{
-    qDebug() << "DBC mode changed to:" << dbcMode;
-
-    if (dbcMode)
-    {
-        // When entering DBC mode, automatically populate the message list
-        handleRequestDBCMessages();
     }
 }
 
@@ -1101,6 +1199,145 @@ void MainWindowMobileQML::handleRequestDBCSignals(const QString &messageName)
     }
 }
 
+void MainWindowMobileQML::handleDBCSignalValueChanged(int senderIndex, const QString &messageName, const QString &signalName, const QVariant &value)
+{
+    qDebug() << "handleDBCSignalValueChanged: sender=" << senderIndex << "message=" << messageName << "signal=" << signalName << "value=" << value;
+    
+    if (senderIndex < 0 || senderIndex >= sendingData.size())
+    {
+        qDebug() << "Invalid sender index:" << senderIndex;
+        return;
+    }
+    
+    DBCHandler *dbcHandler = DBCHandler::getReference();
+    if (!dbcHandler)
+    {
+        qDebug() << "No DBC handler available";
+        return;
+    }
+    
+    // Find the message and signal
+    DBC_MESSAGE *msg = dbcHandler->findMessage(messageName);
+    if (!msg)
+    {
+        qDebug() << "Message not found:" << messageName;
+        return;
+    }
+    
+    DBC_SIGNAL *sig = msg->sigHandler->findSignalByName(signalName);
+    if (!sig)
+    {
+        qDebug() << "Signal not found:" << signalName;
+        return;
+    }
+    
+    // Get the frame data (make a copy to modify)
+    QByteArray frameData = sendingData[senderIndex].payload();
+    
+    // Log before state
+    qDebug() << "BEFORE encoding - Frame data size:" << frameData.size() << "Message len:" << msg->len;
+    QString beforeHex;
+    for (int i = 0; i < frameData.size(); i++)
+        beforeHex += QString("%1 ").arg((unsigned char)frameData[i], 2, 16, QChar('0')).toUpper();
+    qDebug() << "BEFORE data:" << beforeHex;
+    
+    if (frameData.size() < (int)msg->len)
+    {
+        qDebug() << "Resizing frame from" << frameData.size() << "to" << msg->len;
+        frameData.resize(msg->len);
+    }
+    
+    // Convert the user input value to the signal's raw value
+    double userValue = value.toDouble();
+    int64_t rawValue = (int64_t)((userValue - sig->bias) / sig->factor);
+    
+    qDebug() << "Signal:" << signalName << "StartBit:" << sig->startBit << "Size:" << sig->signalSize 
+             << "Intel:" << sig->intelByteOrder << "Factor:" << sig->factor << "Bias:" << sig->bias;
+    qDebug() << "Encoding signal value:" << userValue << "-> raw:" << rawValue << "into frame";
+    
+    // Encode the raw value into the frame data
+    // This matches the logic from Utility::processIntegerSignal
+    unsigned char *data = reinterpret_cast<unsigned char*>(frameData.data());
+    int startBit = sig->startBit;
+    int signalSize = sig->signalSize;
+    
+    // Create a mask for the signal value
+    uint64_t mask = (signalSize >= 64) ? 0xFFFFFFFFFFFFFFFFull : ((1ull << signalSize) - 1);
+    uint64_t maskedValue = (uint64_t)rawValue & mask;
+    
+    qDebug() << "Masked value:" << QString("0x%1").arg(maskedValue, 0, 16);
+    
+    // Encode based on byte order
+    if (sig->intelByteOrder) // Little endian (Intel)
+    {
+        // Intel byte order: start bit is the LSB position
+        int bit = startBit;
+        for (int bitpos = 0; bitpos < signalSize; bitpos++)
+        {
+            if (bit < 512)
+            {
+                int bytePos = bit / 8;
+                int bitNum = bit % 8;
+                
+                if (bytePos < frameData.size())
+                {
+                    // Set or clear the bit
+                    if (maskedValue & (1ull << bitpos))
+                        data[bytePos] |= (1 << bitNum);
+                    else
+                        data[bytePos] &= ~(1 << bitNum);
+                }
+            }
+            bit++;
+        }
+    }
+    else // Big endian (Motorola)
+    {
+        // Motorola byte order: start bit is the MSB position
+        int bit = startBit;
+        for (int bitpos = 0; bitpos < signalSize; bitpos++)
+        {
+            if (bit < 512)
+            {
+                int bytePos = bit / 8;
+                int bitNum = bit % 8;
+                
+                if (bytePos < frameData.size())
+                {
+                    // Set or clear the bit (note: reversed bit position for Motorola)
+                    if (maskedValue & (1ull << (signalSize - bitpos - 1)))
+                        data[bytePos] |= (1 << bitNum);
+                    else
+                        data[bytePos] &= ~(1 << bitNum);
+                }
+            }
+            
+            // Move to next bit in Motorola order
+            if ((bit % 8) == 0)
+                bit += 15;
+            else
+                bit--;
+        }
+    }
+    
+    // Update the frame payload
+    sendingData[senderIndex].setPayload(frameData);
+    
+    // Log after state
+    QString afterHex;
+    for (int i = 0; i < frameData.size(); i++)
+        afterHex += QString("%1 ").arg((unsigned char)frameData[i], 2, 16, QChar('0')).toUpper();
+    qDebug() << "AFTER data:" << afterHex;
+    qDebug() << "Updated frame data for sender" << senderIndex << "- new payload size:" << frameData.size();
+    
+    // Verify it was actually set
+    QByteArray verifyData = sendingData[senderIndex].payload();
+    QString verifyHex;
+    for (int i = 0; i < verifyData.size(); i++)
+        verifyHex += QString("%1 ").arg((unsigned char)verifyData[i], 2, 16, QChar('0')).toUpper();
+    qDebug() << "VERIFY data:" << verifyHex;
+}
+
 void MainWindowMobileQML::handleSenderTick()
 {
     // Process periodic sending with proper timing tracking
@@ -1154,6 +1391,10 @@ void MainWindowMobileQML::handleSenderTick()
                 trigger->currCount++;
 
                 // Queue frame for sending
+                qDebug() << "Queueing frame for send: ID=" << QString("0x%1").arg(sendData->frameId(), 0, 16).toUpper()
+                         << "Len=" << sendData->payload().length()
+                         << "Bus=" << sendData->bus
+                         << "Enabled=" << sendData->enabled;
                 sendingList.append(*sendData);
 
                 // Check if we've reached max count
@@ -1168,6 +1409,7 @@ void MainWindowMobileQML::handleSenderTick()
     // Send all queued frames as a batch
     if (sendingList.count() > 0)
     {
+        qDebug() << "Sending" << sendingList.count() << "frames";
         CANConManager::getInstance()->sendFrames(sendingList);
     }
 }
@@ -1607,6 +1849,8 @@ void MainWindowMobileQML::handleLoadDBCFile(const QString &filePath)
             QTimer::singleShot(50, this, [this]() {
                 updateDBCFileList();
                 updateInterpretCheckboxState();
+                // Update Sender view with DBC messages
+                handleRequestDBCMessages();
                 
                 // Mark as done and hide loading indicator
                 m_isLoadingDBC = false;
@@ -1663,6 +1907,8 @@ void MainWindowMobileQML::handleRemoveDBCFile(int index)
         dbcHandler->removeDBCFile(index);
         updateDBCFileList();
         updateInterpretCheckboxState();
+        // Update Sender view with remaining DBC messages
+        handleRequestDBCMessages();
     }
 }
 
