@@ -319,6 +319,29 @@ DBCFile::DBCFile(const DBCFile& cpy) : QObject()
     dbc_attributes.clear();
     dbc_attributes.append(cpy.dbc_attributes);
     isDirty = cpy.isDirty;
+    
+    // Fix up all node pointers in messages and signals after copying
+    for (int x = 0; x < messageHandler->getCount(); x++)
+    {
+        DBC_MESSAGE *msg = messageHandler->findMsgByIdx(x);
+        if (msg->sender)
+        {
+            QString senderName = msg->sender->name;
+            msg->sender = findNodeByName(senderName);
+            if (!msg->sender) msg->sender = findNodeByIdx(0);
+        }
+        
+        for (int y = 0; y < msg->sigHandler->getCount(); y++)
+        {
+            DBC_SIGNAL *sig = msg->sigHandler->findSignalByIdx(y);
+            if (sig->receiver)
+            {
+                QString receiverName = sig->receiver->name;
+                sig->receiver = findNodeByName(receiverName);
+                if (!sig->receiver) sig->receiver = findNodeByIdx(0);
+            }
+        }
+    }
 }
 
 DBCFile& DBCFile::operator=(const DBCFile& cpy)
@@ -333,6 +356,29 @@ DBCFile& DBCFile::operator=(const DBCFile& cpy)
         dbc_nodes.append(cpy.dbc_nodes);
         dbc_attributes.clear();
         dbc_attributes.append(cpy.dbc_attributes);
+        
+        // Fix up all node pointers in messages and signals after copying
+        for (int x = 0; x < messageHandler->getCount(); x++)
+        {
+            DBC_MESSAGE *msg = messageHandler->findMsgByIdx(x);
+            if (msg->sender)
+            {
+                QString senderName = msg->sender->name;
+                msg->sender = findNodeByName(senderName);
+                if (!msg->sender) msg->sender = findNodeByIdx(0);
+            }
+            
+            for (int y = 0; y < msg->sigHandler->getCount(); y++)
+            {
+                DBC_SIGNAL *sig = msg->sigHandler->findSignalByIdx(y);
+                if (sig->receiver)
+                {
+                    QString receiverName = sig->receiver->name;
+                    sig->receiver = findNodeByName(receiverName);
+                    if (!sig->receiver) sig->receiver = findNodeByIdx(0);
+                }
+            }
+        }
     }
     return *this;
 }
@@ -1177,6 +1223,32 @@ bool DBCFile::loadFile(QString fileName)
 
     QColor DefaultBG = QColor(findAttributeByName("GenMsgBackgroundColor")->defaultValue.toString());
     QColor DefaultFG = QColor(findAttributeByName("GenMsgForegroundColor")->defaultValue.toString());
+
+    // Fix up all sender and receiver pointers - they may have been invalidated when nodes were added to dbc_nodes
+    // because QList can reallocate its storage, moving the DBC_NODE objects in memory
+    for (int x = 0; x < messageHandler->getCount(); x++)
+    {
+        DBC_MESSAGE *msg = messageHandler->findMsgByIdx(x);
+        if (msg->sender)
+        {
+            // Re-resolve the sender pointer by name to get the current valid address
+            QString senderName = msg->sender->name;
+            msg->sender = findNodeByName(senderName);
+            if (!msg->sender) msg->sender = findNodeByIdx(0);
+        }
+        
+        // Fix up signal receiver pointers too
+        for (int y = 0; y < msg->sigHandler->getCount(); y++)
+        {
+            DBC_SIGNAL *sig = msg->sigHandler->findSignalByIdx(y);
+            if (sig->receiver)
+            {
+                QString receiverName = sig->receiver->name;
+                sig->receiver = findNodeByName(receiverName);
+                if (!sig->receiver) sig->receiver = findNodeByIdx(0);
+            }
+        }
+    }
 
     for (int x = 0; x < messageHandler->getCount(); x++)
     {
@@ -2175,6 +2247,30 @@ DBCFile* DBCHandler::loadJSONFile(QString filename)
                     DBC_SIGNAL *pSig = pMsg->sigHandler->findSignalByName(sig.name);
                     if (pSig) pMsg->multiplexorSignal = pSig;
                 }
+             }
+         }
+
+         // Fix up all sender and receiver pointers - they may have been invalidated when nodes were added to dbc_nodes
+         // because QList can reallocate its storage, moving the DBC_NODE objects in memory
+         for (int x = 0; x < thisFile->messageHandler->getCount(); x++)
+         {
+             DBC_MESSAGE *msg = thisFile->messageHandler->findMsgByIdx(x);
+             if (msg->sender)
+             {
+                 QString senderName = msg->sender->name;
+                 msg->sender = thisFile->findNodeByName(senderName);
+                 if (!msg->sender) msg->sender = thisFile->findNodeByIdx(0);
+             }
+             
+             for (int y = 0; y < msg->sigHandler->getCount(); y++)
+             {
+                 DBC_SIGNAL *sig = msg->sigHandler->findSignalByIdx(y);
+                 if (sig->receiver)
+                 {
+                     QString receiverName = sig->receiver->name;
+                     sig->receiver = thisFile->findNodeByName(receiverName);
+                     if (!sig->receiver) sig->receiver = thisFile->findNodeByIdx(0);
+                 }
              }
          }
 
