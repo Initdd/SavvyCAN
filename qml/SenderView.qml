@@ -181,6 +181,9 @@ Page {
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 spacing: 8
+                                
+                                // Capture sender index to avoid shadowing in nested Repeaters
+                                readonly property int senderIndex: index
 
                                 // Message selection
                                 RowLayout {
@@ -303,6 +306,10 @@ Page {
                                     RowLayout {
                                         Layout.fillWidth: true
                                         spacing: 12
+                                        
+                                        // Store sender index and last valid value for this signal
+                                        property int currentSenderIdx: parent.parent.parent.senderIndex
+                                        property var lastValidValue: null
 
                                         Label {
                                             text: modelData.name + ":"
@@ -323,17 +330,52 @@ Page {
                                             font.pixelSize: 12
                                             displayText: currentIndex >= 0 ? model[currentIndex].name : editText
                                             
+                                            // Debounce timer for manual text input
+                                            Timer {
+                                                id: sendEnumTimer
+                                                interval: 300
+                                                repeat: false
+                                                onTriggered: {
+                                                    if (signalCombo.editText.length === 0) {
+                                                        return; // Don't send if field is empty
+                                                    }
+                                                    var msgName = senderListModel.get(parent.currentSenderIdx).messageName || "";
+                                                    var editText = signalCombo.editText;
+                                                    
+                                                    // Try to find the enum value by name
+                                                    var foundValue = null;
+                                                    for (var i = 0; i < model.length; i++) {
+                                                        if (model[i].name === editText) {
+                                                            foundValue = model[i].value;
+                                                            break;
+                                                        }
+                                                    }
+                                                    
+                                                    // If found in enum, use the numeric value; otherwise try to parse as number
+                                                    var finalValue = (foundValue !== null) ? foundValue : parseFloat(editText);
+                                                    if (!isNaN(finalValue)) {
+                                                        dbcSignalValueChanged(parent.currentSenderIdx, msgName, modelData.name, finalValue);
+                                                        parent.lastValidValue = finalValue;
+                                                    }
+                                                }
+                                            }
+                                            
                                             onCurrentIndexChanged: {
+                                                // Dropdown selection - send immediately
                                                 if (currentIndex >= 0 && model && model[currentIndex]) {
-                                                    var msgName = senderListModel.get(index).messageName || "";
-                                                    dbcSignalValueChanged(index, msgName, modelData.name, model[currentIndex].value);
+                                                    sendEnumTimer.stop();
+                                                    var msgName = senderListModel.get(parent.currentSenderIdx).messageName || "";
+                                                    var enumValue = model[currentIndex];
+                                                    // Use the numeric value from the enum
+                                                    dbcSignalValueChanged(parent.currentSenderIdx, msgName, modelData.name, enumValue.value);
+                                                    parent.lastValidValue = enumValue.value;
                                                 }
                                             }
                                             
                                             onEditTextChanged: {
+                                                // Manual text input - debounce to avoid sending while typing
                                                 if (editable && editText) {
-                                                    var msgName = senderListModel.get(index).messageName || "";
-                                                    dbcSignalValueChanged(index, msgName, modelData.name, parseFloat(editText));
+                                                    sendEnumTimer.restart();
                                                 }
                                             }
 
@@ -408,6 +450,7 @@ Page {
                                         }
 
                                         TextField {
+                                            id: numericValueField
                                             Layout.fillWidth: true
                                             visible: !modelData.hasEnumValues
                                             text: modelData.defaultValue || "0"
@@ -417,9 +460,66 @@ Page {
                                             placeholderTextColor: ThemeManager.secondaryTextColor
                                             padding: 6
                                             
+                                            // Initialize last valid value
+                                            Component.onCompleted: {
+                                                parent.lastValidValue = parseFloat(text) || 0;
+                                            }
+                                            
+                                            // Debounce timer - waits 300ms after user stops typing before sending
+                                            Timer {
+                                                id: sendValueTimer
+                                                interval: 300
+                                                repeat: false
+                                                onTriggered: {
+                                                    // Use last valid value if field is empty, otherwise parse current text
+                                                    var textValue = numericValueField.text.trim();
+                                                    var valueToSend;
+                                                    
+                                                    if (textValue.length === 0) {
+                                                        // Field is empty, use last valid value
+                                                        valueToSend = parent.lastValidValue !== null ? parent.lastValidValue : 0;
+                                                    } else {
+                                                        var parsed = parseFloat(textValue);
+                                                        if (isNaN(parsed)) {
+                                                            // Invalid number, use last valid value
+                                                            valueToSend = parent.lastValidValue !== null ? parent.lastValidValue : 0;
+                                                        } else {
+                                                            // Valid number, use it and update last valid value
+                                                            valueToSend = parsed;
+                                                            parent.lastValidValue = parsed;
+                                                        }
+                                                    }
+                                                    
+                                                    var msgName = senderListModel.get(parent.currentSenderIdx).messageName || "";
+                                                    dbcSignalValueChanged(parent.currentSenderIdx, msgName, modelData.name, valueToSend);
+                                                }
+                                            }
+                                            
+                                            onTextChanged: {
+                                                // Restart timer whenever text changes
+                                                sendValueTimer.restart();
+                                            }
+                                            
                                             onEditingFinished: {
-                                                var msgName = senderListModel.get(index).messageName || "";
-                                                dbcSignalValueChanged(index, msgName, modelData.name, parseFloat(text));
+                                                // Immediately send if user presses Enter
+                                                sendValueTimer.stop();
+                                                var textValue = text.trim();
+                                                var valueToSend;
+                                                
+                                                if (textValue.length === 0) {
+                                                    valueToSend = parent.lastValidValue !== null ? parent.lastValidValue : 0;
+                                                } else {
+                                                    var parsed = parseFloat(textValue);
+                                                    if (isNaN(parsed)) {
+                                                        valueToSend = parent.lastValidValue !== null ? parent.lastValidValue : 0;
+                                                    } else {
+                                                        valueToSend = parsed;
+                                                        parent.lastValidValue = parsed;
+                                                    }
+                                                }
+                                                
+                                                var msgName = senderListModel.get(parent.currentSenderIdx).messageName || "";
+                                                dbcSignalValueChanged(parent.currentSenderIdx, msgName, modelData.name, valueToSend);
                                             }
 
                                             background: Rectangle {

@@ -116,12 +116,12 @@ Page {
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 10
-        spacing: 10
+        spacing: 5
 
         // Header with controls
         RowLayout {
             Layout.fillWidth: true
-            spacing: 10
+            spacing: 5
 
             Label {
                 text: qsTr("CAN Signal Graph")
@@ -193,9 +193,9 @@ Page {
             ChartView {
                 id: chartView
                 anchors.centerIn: parent
-                width: parent.height
-                height: parent.width
-                rotation: -90
+                width: parent.width
+                height: parent.height
+                rotation: 0
                 antialiasing: true
                 backgroundColor: ThemeManager.secondaryBackgroundColor
                 legend.visible: true
@@ -213,7 +213,8 @@ Page {
                 // X-axis (time)
                 ValueAxis {
                     id: xAxis
-                    titleText: "Time (s)"
+                    // text: "Time (s) (time range: NN s)"
+                    titleText: qsTr("Time (s) (time range: %1s)").arg((xAxis.max - xAxis.min).toFixed(2))
                     min: 0
                     max: 10
                     tickCount: 6
@@ -232,112 +233,6 @@ Page {
                     color: ThemeManager.textColor
                     labelsColor: ThemeManager.textColor
                 }
-
-                // Enable zoom and pan
-                Component.onCompleted: {
-                    // Touch/mouse interactions
-                    chartView.legend.color = ThemeManager.backgroundColor;
-                    chartView.legend.labelColor = ThemeManager.textColor;
-                }
-
-                // Mouse/Touch area for panning
-                MouseArea {
-                    id: chartMouseArea
-                    anchors.fill: parent
-                    acceptedButtons: Qt.LeftButton
-
-                    property real lastX: 0
-                    property real lastY: 0
-                    property bool isPanning: false
-
-                    onPressed: function (mouse) {
-                        lastX = mouse.x;
-                        lastY = mouse.y;
-                        isPanning = true;
-                        chartView.plotAreaColor = Qt.rgba(0.8, 0.8, 0.8, 0.1);
-                    }
-
-                    onPositionChanged: function (mouse) {
-                        if (isPanning) {
-                            var dx = mouse.x - lastX;
-                            var dy = mouse.y - lastY;
-
-                            // Calculate pan amount in axis units
-                            var xRange = xAxis.max - xAxis.min;
-                            var yRange = yAxis.max - yAxis.min;
-                            var xPan = -(dx / chartView.plotArea.width) * xRange;
-                            var yPan = (dy / chartView.plotArea.height) * yRange;
-
-                            // Apply pan
-                            chartView.scrollLeft(xPan);
-                            chartView.scrollUp(yPan);
-
-                            lastX = mouse.x;
-                            lastY = mouse.y;
-                        }
-                    }
-
-                    onReleased: {
-                        isPanning = false;
-                        chartView.plotAreaColor = "transparent";
-                    }
-
-                    onCanceled: {
-                        isPanning = false;
-                        chartView.plotAreaColor = "transparent";
-                    }
-                }
-
-                // Pinch to zoom
-                PinchArea {
-                    anchors.fill: parent
-
-                    property real initialZoomX: 1.0
-                    property real initialZoomY: 1.0
-
-                    onPinchStarted: {
-                        chartView.plotAreaColor = Qt.rgba(0.8, 0.8, 0.8, 0.1);
-                        initialZoomX = 1.0;
-                        initialZoomY = 1.0;
-                    }
-
-                    onPinchUpdated: function (pinch) {
-                        // Calculate zoom factor change since last update
-                        var zoomFactorX = pinch.scale / initialZoomX;
-                        var zoomFactorY = pinch.scale / initialZoomY;
-
-                        // Apply zoom centered on pinch center
-                        var centerX = pinch.center.x;
-                        var centerY = pinch.center.y;
-
-                        // Convert pixel coordinates to axis values
-                        var xRatio = centerX / chartView.plotArea.width;
-                        var yRatio = centerY / chartView.plotArea.height;
-
-                        var xRange = xAxis.max - xAxis.min;
-                        var yRange = yAxis.max - yAxis.min;
-
-                        var centerXValue = xAxis.min + xRatio * xRange;
-                        var centerYValue = yAxis.max - yRatio * yRange;
-
-                        // Calculate new ranges
-                        var newXRange = xRange / zoomFactorX;
-                        var newYRange = yRange / zoomFactorY;
-
-                        // Keep center point fixed
-                        xAxis.min = centerXValue - xRatio * newXRange;
-                        xAxis.max = centerXValue + (1 - xRatio) * newXRange;
-                        yAxis.min = centerYValue - (1 - yRatio) * newYRange;
-                        yAxis.max = centerYValue + yRatio * newYRange;
-
-                        initialZoomX = pinch.scale;
-                        initialZoomY = pinch.scale;
-                    }
-
-                    onPinchFinished: {
-                        chartView.plotAreaColor = "transparent";
-                    }
-                }
             }
 
             // Empty state message
@@ -349,15 +244,6 @@ Page {
                 horizontalAlignment: Text.AlignHCenter
                 visible: !hasSignals
             }
-        }
-
-        // Graph info/stats
-        Label {
-            Layout.fillWidth: true
-            text: hasSignals ? qsTr("Signal: %1 | Time range: %2s").arg(graphController ? graphController.getSignalName() : "").arg(xAxis.max.toFixed(2)) : qsTr("No active signals")
-            font.pixelSize: 11
-            color: ThemeManager.secondaryTextColor
-            horizontalAlignment: Text.AlignLeft
         }
     }
 
@@ -386,114 +272,5 @@ Page {
 
     function resetZoom() {
         chartView.zoomReset();
-    }
-
-    // Function called from C++ to show signal picker
-    property int pickerFrameId: 0
-    property int pickerBus: 0
-    property string pickerMessageName: ""
-    property var pickerSignals: []
-
-    function showSignalPicker(frameId, bus, messageName, signals) {
-        console.log("showSignalPicker called:", messageName, "signals:", signals.length);
-        pickerFrameId = frameId;
-        pickerBus = bus;
-        pickerMessageName = messageName;
-        pickerSignals = signals;
-        signalPickerDialog.open();
-    }
-
-    // Signal picker dialog
-    Dialog {
-        id: signalPickerDialog
-        title: "Select Signal to Graph"
-        width: Math.min(parent.width * 0.9, 400)
-        height: Math.min(parent.height * 0.8, 500)
-        anchors.centerIn: parent
-        modal: true
-
-        ColumnLayout {
-            anchors.fill: parent
-            spacing: 10
-
-            Label {
-                Layout.fillWidth: true
-                text: "Frame: 0x" + pickerFrameId.toString(16).toUpperCase() + " (" + pickerMessageName + ")"
-                font.bold: true
-                wrapMode: Text.Wrap
-                color: ThemeManager.textColor
-            }
-
-            Label {
-                Layout.fillWidth: true
-                text: "Select which signal to graph:"
-                color: ThemeManager.textColor
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                color: ThemeManager.secondaryBackgroundColor
-                border.color: ThemeManager.borderColor
-                border.width: 1
-
-                ScrollView {
-                    anchors.fill: parent
-                    anchors.margins: 1
-                    clip: true
-
-                    ListView {
-                        id: signalPickerListView
-                        anchors.fill: parent
-                        model: pickerSignals
-                        spacing: 5
-
-                        delegate: ItemDelegate {
-                            width: ListView.view.width
-
-                            contentItem: ColumnLayout {
-                                spacing: 2
-
-                                Label {
-                                    text: modelData.name
-                                    font.bold: true
-                                    color: ThemeManager.textColor
-                                }
-
-                                Label {
-                                    text: "Bit: " + modelData.startBit + " | Size: " + modelData.signalSize + " | " + (modelData.isLittleEndian ? "LE" : "BE") + " | " + (modelData.isSigned ? "Signed" : "Unsigned")
-                                    font.pixelSize: 12
-                                    color: ThemeManager.secondaryTextColor
-                                }
-                            }
-
-                            background: Rectangle {
-                                color: parent.hovered ? ThemeManager.hoverColor : "transparent"
-                            }
-
-                            onClicked: {
-                                console.log("Selected signal:", modelData.name);
-                                graphController.addSignal(pickerFrameId, pickerBus, modelData.startBit, modelData.signalSize, modelData.isSigned, modelData.isLittleEndian, modelData.name, modelData.min, modelData.max);
-                                signalPickerDialog.close();
-                            }
-                        }
-                    }
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.topMargin: 10
-
-                Item {
-                    Layout.fillWidth: true
-                }
-
-                Button {
-                    text: "Cancel"
-                    onClicked: signalPickerDialog.close()
-                }
-            }
-        }
     }
 }

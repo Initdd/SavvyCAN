@@ -46,6 +46,9 @@ Page {
         id: framesModel
     }
 
+    // Property to track graph panel height
+    property real graphPanelHeight: 200
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 10
@@ -116,7 +119,7 @@ Page {
                     color: hasDBCFiles && checked ? 
                         ThemeManager.accentColor : 
                         (parent.hovered ? ThemeManager.buttonHoverColor : "transparent")
-                    border.color: checked ? ThemeManager.accentColor : ThemeManager.borderColor
+                    border.color: hasDBCFiles ? ThemeManager.accentColor : ThemeManager.borderColor
                     border.width: checked ? 2 : 1
                     radius: 4
                 }
@@ -188,257 +191,315 @@ Page {
             }
         }
 
-        // CAN Frames List
+        // Frames and Graph Container with draggable splitter
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            color: ThemeManager.secondaryBackgroundColor
             border.color: ThemeManager.borderColor
             border.width: 1
-            color: ThemeManager.secondaryBackgroundColor
 
-            ScrollView {
+            ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: 1
-                clip: true
+                spacing: 0
 
-                ListView {
-                    id: canFramesListView
-                    anchors.fill: parent
-                    model: framesModel
-                    spacing: 2
+                // CAN Frames List
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: !graphVisible
+                    Layout.preferredHeight: graphVisible ? (parent.height - graphPanelHeight - 4) : parent.height
+                    border.color: ThemeManager.borderColor
+                    border.width: 0
+                    color: ThemeManager.secondaryBackgroundColor
+                    clip: true
 
-                    Component.onCompleted: {
-                        if (debugLogging)
-                            console.log("ListView completed. Model count:", framesModel.count);
-                    }
+                    ScrollView {
+                        anchors.fill: parent
+                        anchors.margins: 1
+                        clip: true
 
-                    delegate: Rectangle {
-                        width: canFramesListView.width
-                        // row height grows when expanded to fit contentColumn implicitHeight
-                        height: expanded ? Math.max(70, contentColumn.implicitHeight + 8) : 70
-                        color: index % 2 ? ThemeManager.frameEvenRow : ThemeManager.frameOddRow
-                        border.color: ThemeManager.frameBorder
-                        border.width: 1
-
-                        required property int index
-                        required property string timestamp
-                        required property string frameId
-                        required property bool extended
-                        required property bool remote
-                        required property string direction
-                        required property int bus
-                        required property int length
-                        required property string dataHex
-                        // whether this row is expanded to show full text (model role)
-                        required property bool expanded
-
-                        ColumnLayout {
-                            id: contentColumn
+                        ListView {
+                            id: canFramesListView
                             anchors.fill: parent
-                            anchors.margins: 4
+                            model: framesModel
                             spacing: 2
 
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: 8
-
-                                Label {
-                                    text: "ID: " + frameId
-                                    font.bold: true
-                                    font.pixelSize: 13
-                                    color: ThemeManager.textColor
-                                }
-
-                                Label {
-                                    text: "[Ext]"
-                                    font.pixelSize: 10
-                                    color: ThemeManager.secondaryTextColor
-                                    visible: extended
-                                }
-
-                                Label {
-                                    text: "[RTR]"
-                                    font.pixelSize: 10
-                                    color: ThemeManager.secondaryTextColor
-                                    visible: remote
-                                }
-
-                                Item {
-                                    Layout.fillWidth: true
-                                }
-                                Label {
-                                    text: "Bus " + bus
-                                    font.pixelSize: 11
-                                    color: ThemeManager.secondaryTextColor
-                                }
-
-                                Label {
-                                    text: direction
-                                    font.pixelSize: 11
-                                    color: direction === "Rx" ? ThemeManager.rxColor : ThemeManager.txColor
-                                }
+                            Component.onCompleted: {
+                                if (debugLogging)
+                                    console.log("ListView completed. Model count:", framesModel.count);
                             }
 
-                            // Helper function to parse signals from dataHex
-                            function getSignalLines() {
-                                var lines = dataHex.split('\n');
-                                var signals = [];
-                                var inSignals = false;
+                            delegate: Rectangle {
+                                width: canFramesListView.width
+                                // row height grows when expanded to fit contentColumn implicitHeight
+                                height: expanded ? Math.max(70, contentColumn.implicitHeight + 8) : 70
+                                color: index % 2 ? ThemeManager.frameEvenRow : ThemeManager.frameOddRow
+                                border.color: ThemeManager.frameBorder
+                                border.width: 1
 
-                                for (var i = 0; i < lines.length; i++) {
-                                    var line = lines[i].trim();
-                                    // Skip the hex data line and message name
-                                    if (line.startsWith('<') && line.endsWith('>')) {
-                                        inSignals = true;
-                                        continue;
-                                    }
-                                    // Check if this looks like a signal line (has ':' and value)
-                                    if (inSignals && line.indexOf(':') > 0) {
-                                        signals.push(line);
-                                    }
-                                }
-                                return signals;
-                            }
+                                required property int index
+                                required property string timestamp
+                                required property string frameId
+                                required property string frameName
+                                required property bool extended
+                                required property bool remote
+                                required property string direction
+                                required property int bus
+                                required property int length
+                                required property string dataHex
+                                // whether this row is expanded to show full text (model role)
+                                required property bool expanded
 
-                            // Data text: show one line with elide when collapsed
-                            Text {
-                                id: dataText
-                                Layout.fillWidth: true
-                                text: {
-                                    var lines = dataHex.split('\n');
-                                    return "Data [" + length + "]: " + lines[0];
-                                }
-                                font.pixelSize: 12
-                                font.family: "Monospace"
-                                color: ThemeManager.textColor
-                                wrapMode: Text.NoWrap
-                                elide: Text.ElideRight
-                                horizontalAlignment: Text.AlignLeft
-                                verticalAlignment: Text.AlignVCenter
-                            }
+                                ColumnLayout {
+                                    id: contentColumn
+                                    anchors.fill: parent
+                                    anchors.margins: 4
+                                    spacing: 2
 
-                            // Show signals when expanded (if interpret mode is on)
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 2
-                                visible: expanded && interpretMode && contentColumn.getSignalLines().length > 0
-
-                                Repeater {
-                                    model: expanded ? contentColumn.getSignalLines() : []
-
-                                    delegate: Rectangle {
+                                    RowLayout {
                                         Layout.fillWidth: true
-                                        height: 26
-                                        color: "transparent"
-                                        radius: 3
+                                        spacing: 8
 
-                                        RowLayout {
-                                            anchors.fill: parent
-                                            anchors.leftMargin: 8
-                                            anchors.rightMargin: 4
-                                            spacing: 8
+                                        Label {
+                                            text: (interpretMode && frameName) ? (frameName + " (" + frameId + ")") : ("ID: " + frameId)
+                                            font.bold: true
+                                            font.pixelSize: 13
+                                            color: ThemeManager.textColor
+                                        }
 
-                                            Text {
-                                                Layout.fillWidth: true
-                                                text: modelData
-                                                font.pixelSize: 11
-                                                font.family: "Monospace"
-                                                color: ThemeManager.textColor
-                                                verticalAlignment: Text.AlignVCenter
+                                        Label {
+                                            text: "[Ext]"
+                                            font.pixelSize: 10
+                                            color: ThemeManager.secondaryTextColor
+                                            visible: extended
+                                        }
+
+                                        Label {
+                                            text: "[RTR]"
+                                            font.pixelSize: 10
+                                            color: ThemeManager.secondaryTextColor
+                                            visible: remote
+                                        }
+
+                                        Item {
+                                            Layout.fillWidth: true
+                                        }
+                                        Label {
+                                            text: "Bus " + bus
+                                            font.pixelSize: 11
+                                            color: ThemeManager.secondaryTextColor
+                                        }
+
+                                        Label {
+                                            text: direction
+                                            font.pixelSize: 11
+                                            color: direction === "Rx" ? ThemeManager.rxColor : ThemeManager.txColor
+                                        }
+                                    }
+
+                                    // Helper function to parse signals from dataHex
+                                    function getSignalLines() {
+                                        var lines = dataHex.split('\n');
+                                        var signals = [];
+                                        var inSignals = false;
+
+                                        for (var i = 0; i < lines.length; i++) {
+                                            var line = lines[i].trim();
+                                            // Skip the hex data line and message name
+                                            if (line.startsWith('<') && line.endsWith('>')) {
+                                                inSignals = true;
+                                                continue;
                                             }
+                                            // Check if this looks like a signal line (has ':' and value)
+                                            if (inSignals && line.indexOf(':') > 0) {
+                                                signals.push(line);
+                                            }
+                                        }
+                                        return signals;
+                                    }
 
-                                            RoundButton {
-                                                width: 8
-                                                height: 8
-                                                z: 10
+                                    // Data text: show one line with elide when collapsed
+                                    Text {
+                                        id: dataText
+                                        Layout.fillWidth: true
+                                        text: {
+                                            var lines = dataHex.split('\n');
+                                            return "Data [" + length + "]: " + lines[0];
+                                        }
+                                        font.pixelSize: 12
+                                        font.family: "Monospace"
+                                        color: ThemeManager.textColor
+                                        wrapMode: Text.NoWrap
+                                        elide: Text.ElideRight
+                                        horizontalAlignment: Text.AlignLeft
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
 
-                                                onClicked: {
-                                                    // Extract signal name from the line (format: "SignalName: value")
-                                                    var signalLine = modelData;
-                                                    var colonIndex = signalLine.indexOf(':');
-                                                    if (colonIndex > 0) {
-                                                        var signalName = signalLine.substring(0, colonIndex).trim();
-                                                        console.log("=== Signal plus button clicked ===");
-                                                        console.log("  Signal name:", signalName);
-                                                        console.log("  Frame ID:", frameId);
-                                                        console.log("  Bus:", bus);
+                                    // Show signals when expanded (if interpret mode is on)
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 2
+                                        visible: expanded && interpretMode && contentColumn.getSignalLines().length > 0
 
-                                                        // Parse frameId which is a hex string
-                                                        var frameIdNum = parseInt(frameId, 16);
+                                        Repeater {
+                                            model: expanded ? contentColumn.getSignalLines() : []
 
-                                                        // Call C++ to add this specific signal to graph
-                                                        if (typeof mainWindowQML !== 'undefined' && mainWindowQML !== null) {
-                                                            mainWindowQML.handleAddSignalToGraph(frameIdNum, bus, signalName);
-                                                        } else {
-                                                            console.log("  ERROR: mainWindowQML is not available!");
+                                            delegate: Rectangle {
+                                                Layout.fillWidth: true
+                                                height: 26
+                                                color: "transparent"
+                                                radius: 3
+
+                                                RowLayout {
+                                                    anchors.fill: parent
+                                                    anchors.leftMargin: 8
+                                                    anchors.rightMargin: 4
+                                                    spacing: 8
+
+                                                    Text {
+                                                        Layout.fillWidth: true
+                                                        text: modelData
+                                                        font.pixelSize: 11
+                                                        font.family: "Monospace"
+                                                        color: ThemeManager.textColor
+                                                        verticalAlignment: Text.AlignVCenter
+                                                    }
+
+                                                    RoundButton {
+                                                        width: 8
+                                                        height: 8
+                                                        z: 10
+
+                                                        onClicked: {
+                                                            // Extract signal name from the line (format: "SignalName: value")
+                                                            var signalLine = modelData;
+                                                            var colonIndex = signalLine.indexOf(':');
+                                                            if (colonIndex > 0) {
+                                                                var signalName = signalLine.substring(0, colonIndex).trim();
+                                                                console.log("=== Signal plus button clicked ===");
+                                                                console.log("  Signal name:", signalName);
+                                                                console.log("  Frame ID:", frameId);
+                                                                console.log("  Bus:", bus);
+
+                                                                // Parse frameId which is a hex string
+                                                                var frameIdNum = parseInt(frameId, 16);
+
+                                                                // Call C++ to add this specific signal to graph
+                                                                if (typeof mainWindowQML !== 'undefined' && mainWindowQML !== null) {
+                                                                    mainWindowQML.handleAddSignalToGraph(frameIdNum, bus, signalName);
+                                                                } else {
+                                                                    console.log("  ERROR: mainWindowQML is not available!");
+                                                                }
+                                                            }
+                                                        }
+
+                                                        background: Rectangle {
+                                                            radius: width
+                                                            color: parent.pressed ? Qt.darker(ThemeManager.accentColor, 1.2) : ThemeManager.accentColor
+                                                        }
+
+                                                        contentItem: Text {
+                                                            text: "+"
+                                                            font.pixelSize: 8
+                                                            font.bold: true
+                                                            color: "white"
+                                                            horizontalAlignment: Text.AlignHCenter
+                                                            verticalAlignment: Text.AlignVCenter
                                                         }
                                                     }
-                                                }
-
-                                                background: Rectangle {
-                                                    radius: width
-                                                    color: parent.pressed ? Qt.darker(ThemeManager.accentColor, 1.2) : ThemeManager.accentColor
-                                                }
-
-                                                contentItem: Text {
-                                                    text: "+"
-                                                    font.pixelSize: 8
-                                                    font.bold: true
-                                                    color: "white"
-                                                    horizontalAlignment: Text.AlignHCenter
-                                                    verticalAlignment: Text.AlignVCenter
                                                 }
                                             }
                                         }
                                     }
-                                }
-                            }
 
-                            Label {
-                                Layout.fillWidth: true
-                                text: "Delta: " + timestamp + " s"
-                                font.pixelSize: 10
-                                color: ThemeManager.tertiaryTextColor
-                            }
-                        }
-
-                        // clip children so when collapsed wrapped text doesn't overflow into next row
-                        clip: true
-
-                        // Tap to toggle expansion (doesn't interfere with scrolling)
-                        TapHandler {
-                            acceptedButtons: Qt.LeftButton
-                            onTapped: function (eventPoint, button) {
-                                // Check if tap is outside the signals area
-                                var tapY = eventPoint.position.y;
-                                var signalsStartY = contentColumn.height - 30;  // Approximate signals area
-
-                                // Only toggle if not tapping on signals
-                                if (!expanded || tapY < signalsStartY) {
-                                    framesModel.set(index, {
-                                        "expanded": !expanded
-                                    });
-                                    // Update allExpanded property
-                                    if (!expanded) {
-                                        allExpanded = false;
-                                    } else {
-                                        allExpanded = contentColumn.parent.checkCollapsedRows() ? false : true;
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: "Delta: " + timestamp + " s"
+                                        font.pixelSize: 10
+                                        color: ThemeManager.tertiaryTextColor
                                     }
                                 }
+
+                                // clip children so when collapsed wrapped text doesn't overflow into next row
+                                clip: true
+
+                                // Tap to toggle expansion (doesn't interfere with scrolling)
+                                TapHandler {
+                                    acceptedButtons: Qt.LeftButton
+                                    onTapped: function (eventPoint, button) {
+                                        // Check if tap is outside the signals area
+                                        var tapY = eventPoint.position.y;
+                                        var signalsStartY = contentColumn.height - 30;  // Approximate signals area
+
+                                        // Only toggle if not tapping on signals
+                                        if (!expanded || tapY < signalsStartY) {
+                                            framesModel.set(index, {
+                                                "expanded": !expanded
+                                            });
+                                            // Update allExpanded property
+                                            if (!expanded) {
+                                                allExpanded = false;
+                                            } else {
+                                                allExpanded = contentColumn.parent.checkCollapsedRows() ? false : true;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // dynamic height handled by binding above
+                            }
+
+                            // Show message when empty
+                            Label {
+                                anchors.centerIn: parent
+                                text: qsTr("No frames received yet.\nConnect to a CAN device to see frames.")
+                                font.pixelSize: 14
+                                color: ThemeManager.secondaryTextColor
+                                horizontalAlignment: Text.AlignHCenter
+                                visible: canFramesListView.count === 0
                             }
                         }
-
-                        // dynamic height handled by binding above
                     }
+                }
 
-                    // Show message when empty
-                    Label {
-                        anchors.centerIn: parent
-                        text: qsTr("No frames received yet.\nConnect to a CAN device to see frames.")
-                        font.pixelSize: 14
-                        color: ThemeManager.secondaryTextColor
-                        horizontalAlignment: Text.AlignHCenter
-                        visible: canFramesListView.count === 0
+                // Draggable Splitter Handle
+                Rectangle {
+                    id: splitterHandle
+                    Layout.fillWidth: true
+                    height: 20
+                    color: ThemeManager.borderColor
+                    visible: graphVisible
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.SizeVerCursor
+                        drag.target: splitterHandle
+                        drag.axis: Drag.YAxis
+                        drag.minimumY: 30
+                        drag.maximumY: parent.parent.height - 60
+
+                        onPositionChanged: {
+                            if (pressed) {
+                                graphPanelHeight = parent.parent.height - splitterHandle.y;
+                            }
+                        }
+                    }
+                }
+
+                // Graph View Panel
+                Rectangle {
+                    id: graphPanel
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.preferredHeight: graphVisible ? graphPanelHeight : 0
+                    visible: graphVisible
+                    color: ThemeManager.backgroundColor
+                    clip: true
+
+                    GraphView {
+                        id: graphView
+                        objectName: "graphView"
+                        anchors.fill: parent
                     }
                 }
             }
@@ -452,33 +513,6 @@ Page {
             font.pixelSize: 12
             color: ThemeManager.secondaryTextColor
             horizontalAlignment: Text.AlignRight
-        }
-
-        Rectangle {
-            id: graphOverlay
-            anchors.fill: parent
-            visible: graphVisible
-            color: ThemeManager.backgroundColor
-            z: 100 // Above everything else
-
-            // Slide in/out animation
-            transform: Translate {
-                id: graphTranslate
-                y: graphVisible ? 0 : mainWindow.height
-
-                Behavior on y {
-                    NumberAnimation {
-                        duration: 300
-                        easing.type: Easing.OutCubic
-                    }
-                }
-            }
-
-            GraphView {
-                id: graphView
-                objectName: "graphView"
-                anchors.fill: parent
-            }
         }
     }
 
@@ -510,7 +544,7 @@ Page {
     }
 
     // Function to add a new CAN frame to the list
-    function addCANFrame(timestamp, frameId, extended, remote, direction, bus, length, dataHex) {
+    function addCANFrame(timestamp, frameId, frameName, extended, remote, direction, bus, length, dataHex) {
         if (debugLogging)
             console.log("addCANFrame called:", frameId, "bus:", bus, "len:", length, "data:", dataHex);
 
@@ -524,6 +558,7 @@ Page {
                     framesModel.set(i, {
                         "timestamp": timestamp,
                         "frameId": frameId,
+                        "frameName": frameName,
                         "extended": extended,
                         "remote": remote,
                         "direction": direction,
@@ -544,6 +579,7 @@ Page {
                 framesModel.append({
                     "timestamp": timestamp,
                     "frameId": frameId,
+                    "frameName": frameName,
                     "extended": extended,
                     "remote": remote,
                     "direction": direction,
@@ -560,6 +596,7 @@ Page {
             framesModel.append({
                 "timestamp": timestamp,
                 "frameId": frameId,
+                "frameName": frameName,
                 "extended": extended,
                 "remote": remote,
                 "direction": direction,

@@ -357,6 +357,17 @@ void MainWindowMobileQML::handleInterpretChanged(bool checked)
             // Get direction
             QString direction = frame.isReceived ? "Rx" : "Tx";
 
+            // Extract frame name from DBC if available
+            QString frameName;
+            if (dbcHandler && frame.frameType() == QCanBusFrame::DataFrame)
+            {
+                DBC_MESSAGE *msg = dbcHandler->findMessage(frame);
+                if (msg != nullptr)
+                {
+                    frameName = msg->name;
+                }
+            }
+
             // Format data as hex
             QByteArray payload = frame.payload();
             QString dataHex;
@@ -404,6 +415,7 @@ void MainWindowMobileQML::handleInterpretChanged(bool checked)
                                       Qt::AutoConnection,
                                       Q_ARG(QVariant, timestamp),
                                       Q_ARG(QVariant, frameId),
+                                      Q_ARG(QVariant, frameName),
                                       Q_ARG(QVariant, frame.hasExtendedFrameFormat()),
                                       Q_ARG(QVariant, frame.frameType() == QCanBusFrame::RemoteRequestFrame),
                                       Q_ARG(QVariant, direction),
@@ -1483,6 +1495,17 @@ void MainWindowMobileQML::framesReceived(CANConnection *conn, QVector<CANFrame> 
                 // Get direction
                 QString direction = frame.isReceived ? "Rx" : "Tx";
 
+                // Extract frame name from DBC if available
+                QString frameName;
+                if (dbcHandler && frame.frameType() == QCanBusFrame::DataFrame)
+                {
+                    DBC_MESSAGE *msg = dbcHandler->findMessage(frame);
+                    if (msg != nullptr)
+                    {
+                        frameName = msg->name;
+                    }
+                }
+
                 // Format data as hex
                 QByteArray payload = frame.payload();
                 QString dataHex;
@@ -1530,6 +1553,7 @@ void MainWindowMobileQML::framesReceived(CANConnection *conn, QVector<CANFrame> 
                                                          Qt::AutoConnection,
                                                          Q_ARG(QVariant, timestamp),
                                                          Q_ARG(QVariant, frameId),
+                                                         Q_ARG(QVariant, frameName),
                                                          Q_ARG(QVariant, frame.hasExtendedFrameFormat()),
                                                          Q_ARG(QVariant, frame.frameType() == QCanBusFrame::RemoteRequestFrame),
                                                          Q_ARG(QVariant, direction),
